@@ -13,7 +13,7 @@ def setup_client(host, port):
 	while True:
 		msg = s.recv(1024) 
 		if len(msg) > 0:
-			print("Received: ", msg)
+			print("Received: ", msg.decode('utf-8'))
 		else:
 			break
 	s.close()

@@ -6,7 +6,7 @@ import cv2
 
 def capture_frames(clientsocket):
 	cv2.namedWindow("webcam")
-	vc = cv2.VideoCapture(1)
+	vc = cv2.VideoCapture(0)
 	if vc.isOpened(): # try to get the first frame
 		rval, frame = vc.read()
 	else:
@@ -17,7 +17,7 @@ def capture_frames(clientsocket):
 		cv2.imshow("webcam", frame)
 		rval, frame = vc.read()
 		# send calculated information to ev3
-		clientsocket.send(str(i))
+		clientsocket.send(str(i).encode('utf-8'))
 		i+=1
 		# check if esc key pressed
 		key = cv2.waitKey(20)
@@ -30,11 +30,11 @@ if __name__ == "__main__":
 	# setup server socket
 	serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 	host = socket.gethostname()   
-	print "host: ", host                         
+	print ("host: ", host)                        
 	port = 9999
 	serversocket.bind((host, port))                                  
 	# queue up to 5 requests
 	serversocket.listen(5) 
 	clientsocket,addr = serversocket.accept()  
-	print "Connected to: %s" % str(addr) 
+	print ("Connected to: " +str(addr) )
 	capture_frames(clientsocket)
