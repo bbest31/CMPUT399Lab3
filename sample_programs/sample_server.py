@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# RUN ON LAPTOP USING PYTHON 2.7
+# RUN ON LAPTOP USING PYTHON 3.6
 
 import socket                                         
 import cv2
