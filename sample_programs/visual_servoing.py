@@ -2,15 +2,11 @@ import cv2
 import sys
  
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
- 
-if __name__ == '__main__' :
- 
-    # Set up tracker.
-    # Instead of MIL, you can also use
- 
+
+def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
-    tracker_type = tracker_types[4]
- 
+    tracker_type = tracker_types[index]
+
     if int(minor_ver) < 3:
         tracker = cv2.Tracker_create(tracker_type)
     else:
@@ -30,8 +26,13 @@ if __name__ == '__main__' :
             tracker = cv2.TrackerMOSSE_create()
         if tracker_type == "CSRT":
             tracker = cv2.TrackerCSRT_create()
+    return tracker, tracker_type
+
+if __name__ == '__main__' :
  
-    tracker = cv2.TrackerBoosting_create()
+    # Set up tracker.
+    tracker, tracker_type = choose_tracking_method(2,minor_ver)
+    
     cv2.namedWindow("webcam")
     vc = cv2.VideoCapture(1)
 
@@ -48,13 +49,10 @@ if __name__ == '__main__' :
         cv2.imshow("webcam", frame)
         i = i + 1
 
-    # Uncomment the line below to select a different bounding box
-
     target_bbox = cv2.selectROI("webcam", frame, False)
     target_point =(int(target_bbox[0] + target_bbox[2]/2),int(target_bbox[1] + target_bbox[3]/2)) 
 
     bbox = cv2.selectROI("webcam", frame, False)
-
 
     # Initialize tracker with first frame and bounding box
     rval = tracker.init(frame, bbox)
