@@ -87,7 +87,7 @@ if __name__ == '__main__' :
         cv2.imshow("webcam", frame)
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
-         if ok:
+        if ok:
             # Tracking success
             feature_point = bounding_rectangle.centre 
             #Should we show updated bounding box on frame?
