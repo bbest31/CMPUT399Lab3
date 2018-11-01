@@ -43,16 +43,31 @@ if __name__ == '__main__' :
         rval = False
 
     i = 0
-    while rval and i < 100:
+    while rval and i < 50:
         # Read a new frame
         rval, frame = vc.read()
         cv2.imshow("webcam", frame)
         i = i + 1
 
-    target_bbox = cv2.selectROI("webcam", frame, False)
+    #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
+    cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    #bbox is an array represending a rectangle: [x, y, height, width]
+    bbox = cv2.selectROI("webcam", frame, False, True)
+    #Represents the centre of the bounding box. This is the point that we are actually tracking.
+    feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+
+    #Estimate Initial Jacobian
+
+
+    rval, frame = vc.read()
+    if rval:
+        cv2.imshow("webcam", frame)
+    
+    cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    target_bbox = cv2.selectROI("webcam", frame, False, True)
     target_point =(int(target_bbox[0] + target_bbox[2]/2),int(target_bbox[1] + target_bbox[3]/2)) 
 
-    bbox = cv2.selectROI("webcam", frame, False)
+
 
     # Initialize tracker with first frame and bounding box
     rval = tracker.init(frame, bbox)
