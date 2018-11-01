@@ -1,7 +1,8 @@
 import cv2
 import sys
 from server import Server
- 
+from rectangle import Rectangle
+
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
 server = Server()
@@ -30,7 +31,10 @@ def choose_tracking_method(index,minor_ver):
         if tracker_type == "CSRT":
             tracker = cv2.TrackerCSRT_create()
     return tracker, tracker_type
-    
+        
+
+def initial_jacobian_column(base_angle, joint_angle):
+    print ("Function to estimate initial jacobian column")
 
 if __name__ == '__main__' :
  
@@ -57,17 +61,17 @@ if __name__ == '__main__' :
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam", frame, False, True)
+    bounding_rectangle = Rectangle(bbox)
     #Should we draw the bounding box?
 
     ########Estimate Initial Jacobian##############
 
     #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
-    feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+    feature_point = bounding_rectangle.centre 
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
     base_angle = 6
     joint_angle = 9
-
 
     ############This will compute the first column. Will encapsulate in a function.#################
 
@@ -82,11 +86,10 @@ if __name__ == '__main__' :
     if rval:
         cv2.imshow("webcam", frame)
         ok, bbox = tracker.update(frame)
+        bounding_rectangle = Rectangle(bbox)
          if ok:
             # Tracking success
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+            feature_point = bounding_rectangle.centre 
             #Should we show updated bounding box on frame?
         else :
             # Tracking failure
@@ -111,11 +114,10 @@ if __name__ == '__main__' :
     if rval:
         cv2.imshow("webcam", frame)
         ok, bbox = tracker.update(frame)
+        bounding_rectangle = Rectangle(bbox)
          if ok:
             # Tracking success
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+            feature_point = bounding_rectangle.centre 
             #Should we show updated bounding box on frame?
         else :
             # Tracking failure
@@ -133,7 +135,8 @@ if __name__ == '__main__' :
     
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     target_bbox = cv2.selectROI("webcam", frame, False, True)
-    target_point =(int(target_bbox[0] + target_bbox[2]/2),int(target_bbox[1] + target_bbox[3]/2)) 
+    target_bounding_rectange = Rectangle(target_bbox)
+    target_point = target_bounding_rectange.centre
 
 
 
@@ -147,19 +150,18 @@ if __name__ == '__main__' :
         timer = cv2.getTickCount()
         # Update tracker
         ok, bbox = tracker.update(frame)
+        bounding_rectangle = Rectangle(bbox)
         # Calculate Frames per second (FPS)
         fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
         # Draw bounding box
         if ok:
             # Tracking success
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
-            cv2.rectangle(frame, p1, p2, (255,0,0), 2, 1)
-            cv2.rectangle(frame, (int(bbox[0] + bbox[2]/2) - 2, int(bbox[1] + bbox[3]/2) - 2), (int(bbox[0] + bbox[2]/2) + 2,  int(bbox[1] + bbox[3]/2) + 2), (0, 128, 255), -1) 
+            feature_point = bounding_rectangle.centre 
+            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
             cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-            cv2.rectangle(frame, (int(target_bbox[0] + target_bbox[2]/2) - 2, int(target_bbox[1] + target_bbox[3]/2) - 2), (int(target_bbox[0] + target_bbox[2]/2) + 2,  int(target_bbox[1] + target_bbox[3]/2) + 2), (0, 128, 255), -1) 
+            cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
 
         else :
             # Tracking failure
