@@ -4,7 +4,7 @@ from server import Server
  
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-
+server = Server()
 
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -30,6 +30,7 @@ def choose_tracking_method(index,minor_ver):
         if tracker_type == "CSRT":
             tracker = cv2.TrackerCSRT_create()
     return tracker, tracker_type
+    
 
 if __name__ == '__main__' :
  
@@ -56,26 +57,78 @@ if __name__ == '__main__' :
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam", frame, False, True)
+    #Should we draw the bounding box?
 
-    #Estimate Initial Jacobian
+    ########Estimate Initial Jacobian##############
 
-    #This is the initial position of the end effector.
-    #This is the initial position. It is the centre of bounding box around the end effector.
+    #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
     feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
     base_angle = 6
-    joint_angle = 11
+    joint_angle = 9
+
+    jacobian_matrix = []
+
+    ############This will compute the first column. Will encapsulate in a function.#################
+
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
     #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
     #movement has been completed or a timout occurs.
     server.sendData(base_angle,0)
     #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
     rval, frame = vc.read()
+    #This is also a (u,v) tuple
+    previous_feature_point = feature_point
     if rval:
         cv2.imshow("webcam", frame)
-    
-    #End of Initial Jacobian Estimation
+        ok, bbox = tracker.update(frame)
+         if ok:
+            # Tracking success
+            p1 = (int(bbox[0]), int(bbox[1]))
+            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+            feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+            #Should we show updated bounding box on frame?
+        else :
+            # Tracking failure
+            print("Tracking Failure")
+            #Recover by using detection? Or else we have to terminate the program here.
+    #Compute delta of u and delta v. Both points are stored as (u,v) tuples
+    #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
+    delta_u = feature_point[0] - previous_feature_point[0]
+    delta_v = feature_point[1] - previous_feature_point[1]
+    jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
+
+    #########This will compute the second column. Will encapsulate in a function.###############
+ 
+    #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
+    #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
+    #movement has been completed or a timout occurs.
+    server.sendData(0,joint_angle)
+    #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
+    rval, frame = vc.read()
+    #This is also a (u,v) tuple
+    previous_feature_point = feature_point
+    if rval:
+        cv2.imshow("webcam", frame)
+        ok, bbox = tracker.update(frame)
+         if ok:
+            # Tracking success
+            p1 = (int(bbox[0]), int(bbox[1]))
+            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+            feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+            #Should we show updated bounding box on frame?
+        else :
+            # Tracking failure
+            print("Tracking Failure")
+            #Recover by using detection? Or else we have to terminate the program here.
+    #Compute delta of u and delta v. Both points are stored as (u,v) tuples
+    #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
+    delta_u = feature_point[0] - previous_feature_point[0]
+    delta_v = feature_point[1] - previous_feature_point[1]
+    jacobian_column_2 = [delta_u / joint_angle , delta_v / joint_angle]
+
+    #############End of Initial Jacobian Estimation#########################
     
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     target_bbox = cv2.selectROI("webcam", frame, False, True)
