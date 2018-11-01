@@ -68,7 +68,6 @@ if __name__ == '__main__' :
     base_angle = 6
     joint_angle = 9
 
-    jacobian_matrix = []
 
     ############This will compute the first column. Will encapsulate in a function.#################
 
@@ -127,6 +126,8 @@ if __name__ == '__main__' :
     delta_u = feature_point[0] - previous_feature_point[0]
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_2 = [delta_u / joint_angle , delta_v / joint_angle]
+
+    jacobian_matrix = np.asmatrix(np.column_stack((jacobian_column_1, jacobian_column_2)))
 
     #############End of Initial Jacobian Estimation#########################
     
