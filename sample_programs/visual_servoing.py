@@ -1,7 +1,10 @@
 import cv2
 import sys
+from server import Server
  
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
+
+
 
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -53,15 +56,26 @@ if __name__ == '__main__' :
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam", frame, False, True)
-    #Represents the centre of the bounding box. This is the point that we are actually tracking.
-    feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
 
     #Estimate Initial Jacobian
 
-
+    #This is the initial position of the end effector.
+    #This is the initial position. It is the centre of bounding box around the end effector.
+    feature_point = (int(bbox[0] + bbox[2]/2),int(bbox[1] + bbox[3]/2)) 
+    #These are angles that we will use to estimate the initial image jacobian.
+    #They can remain hardcoded as they will only be used once. 
+    base_angle = 6
+    joint_angle = 11
+    #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
+    #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
+    #movement has been completed or a timout occurs.
+    server.sendData(base_angle,0)
+    #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
     rval, frame = vc.read()
     if rval:
         cv2.imshow("webcam", frame)
+    
+    #End of Initial Jacobian Estimation
     
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     target_bbox = cv2.selectROI("webcam", frame, False, True)
