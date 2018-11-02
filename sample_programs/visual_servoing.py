@@ -66,7 +66,7 @@ if __name__ == '__main__' :
 
 
     #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
-    #cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
@@ -117,7 +117,6 @@ if __name__ == '__main__' :
     delta_u = feature_point[0] - previous_feature_point[0]
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
-    print(jacobian_column_1)
     #########This will compute the second column. Will encapsulate in a function.###############
  
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
@@ -163,7 +162,7 @@ if __name__ == '__main__' :
     target_point = target_bounding_rectange.centre
 
     #############Start Visual Servoing##########################
-    
+
     while rval:
         # Read a new frame
         rval, frame = vc.read()
