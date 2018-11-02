@@ -1,5 +1,6 @@
 import cv2
 import sys
+import numpy as np
 from server import Server
 from rectangle import Rectangle
 
@@ -42,9 +43,9 @@ if __name__ == '__main__' :
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
     cv2.namedWindow("webcam")
-    vc = cv2.VideoCapture(1)
+    vc = cv2.VideoCapture(0)
 
-
+    frame = None
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()
     else:
@@ -53,14 +54,17 @@ if __name__ == '__main__' :
     i = 0
     while rval and i < 50:
         # Read a new frame
+        print(str(i))
         rval, frame = vc.read()
         cv2.imshow("webcam", frame)
         i = i + 1
 
+    # rval, frame = vc.read()
+
     #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
-    bbox = cv2.selectROI("webcam", frame, False, True)
+    bbox = cv2.selectROI("webcam", frame, False)
     bounding_rectangle = Rectangle(bbox)
     #Should we draw the bounding box?
 
@@ -100,7 +104,7 @@ if __name__ == '__main__' :
     delta_u = feature_point[0] - previous_feature_point[0]
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
-
+    print(jacobian_column_1)
     #########This will compute the second column. Will encapsulate in a function.###############
  
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
@@ -108,7 +112,7 @@ if __name__ == '__main__' :
     #movement has been completed or a timout occurs.
     server.sendData(0,joint_angle)
     #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
-    rval, frame = vc.read()
+    # rval, frame = vc.read()
     #This is also a (u,v) tuple
     previous_feature_point = feature_point
     if rval:
@@ -130,7 +134,7 @@ if __name__ == '__main__' :
     jacobian_column_2 = [delta_u / joint_angle , delta_v / joint_angle]
 
     jacobian_matrix = np.asmatrix(np.column_stack((jacobian_column_1, jacobian_column_2)))
-
+    print(jacobian_matrix)
     #############End of Initial Jacobian Estimation#########################
     
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)

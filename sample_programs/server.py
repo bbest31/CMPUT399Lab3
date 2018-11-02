@@ -13,7 +13,7 @@ class Server:
         serversocket.bind((host, port))                                  
         # queue up to 5 requests
         serversocket.listen(5) 
-        clientsocket,addr = serversocket.accept()  
+        self.cs,addr = serversocket.accept()  
         print ("Connected to: " +str(addr) )
         
         

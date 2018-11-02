@@ -10,4 +10,4 @@ class Rectangle:
         self.top_right = (rectangle_array[0] + self.width , rectangle_array[1])
         self.bottom_left = (rectangle_array[0] , rectangle_array[1] + self.height)
         self.bottom_right = (rectangle_array[0] + self.width , rectangle_array[1] + self.height)
-        self.centre = (top_left[0] + width/2, top_left[1] + height/2)
+        self.centre = (self.top_left[0] + self.width/2, self.top_left[1] + self.height/2)
