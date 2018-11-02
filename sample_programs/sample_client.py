@@ -19,6 +19,6 @@ def setup_client(host, port):
 	s.close()
 
 if __name__ == "__main__":
-	host = socket.gethostname()                           
+	host = "169.254.49.72"                           
 	port = 9999
 	setup_client(host, port)

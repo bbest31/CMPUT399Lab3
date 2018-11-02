@@ -5,7 +5,7 @@ from rectangle import Rectangle
 
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-server = Server()
+server = Server("localhost",9999)
 
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -115,7 +115,7 @@ if __name__ == '__main__' :
         cv2.imshow("webcam", frame)
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
-         if ok:
+        if ok:
             # Tracking success
             feature_point = bounding_rectangle.centre 
             #Should we show updated bounding box on frame?

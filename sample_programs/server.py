@@ -5,13 +5,16 @@ import socket
 
 class Server:
     def __init__(self,host, port):
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print('binding')
-        self.s.bind((host,port))
-        print('listening')
-        self.s.listen(1)
-        print('accepting')
-        self.cs, address = self.s.accept()
+       # setup server socket
+        serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        host = socket.gethostname()   
+        print ("host: ", host)                        
+        port = 9999
+        serversocket.bind((host, port))                                  
+        # queue up to 5 requests
+        serversocket.listen(5) 
+        clientsocket,addr = serversocket.accept()  
+        print ("Connected to: " +str(addr) )
         
         
     def answerQuery(self,data):

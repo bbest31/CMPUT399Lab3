@@ -8,7 +8,7 @@ class Client:
     def __init__(self,port):
         addr = os.getenv("SSH_CONNECTION").split() # [client_IP, client_port, server_IP, server_port] 
     
-        host = addr[0];
+        host = "169.254.49.72"
         print("setting up client, address =", host, "port =", port)
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.s.connect((host, port))                               
