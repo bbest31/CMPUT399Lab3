@@ -3,10 +3,12 @@ import sys
 import numpy as np
 from server import Server
 from rectangle import Rectangle
+from threading import Event, Thread
+from time import sleep
 
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-server = Server("localhost",9999)
+#server = Server("localhost",9999)
 
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -32,7 +34,12 @@ def choose_tracking_method(index,minor_ver):
         if tracker_type == "CSRT":
             tracker = cv2.TrackerCSRT_create()
     return tracker, tracker_type
-        
+
+#Temporary method to mimic the blocking behaviour of the server
+def we_will_wait():
+    sleep(10)
+    print("Done")
+
 
 def initial_jacobian_column(base_angle, joint_angle):
     print ("Function to estimate initial jacobian column")
@@ -42,31 +49,31 @@ if __name__ == '__main__' :
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
-    cv2.namedWindow("webcam")
     vc = cv2.VideoCapture(0)
 
-    frame = None
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()
     else:
         rval = False
 
     i = 0
-    while rval and i < 50:
+    while rval and i < 100:
         # Read a new frame
-        print(str(i))
         rval, frame = vc.read()
-        cv2.imshow("webcam", frame)
         i = i + 1
 
-    # rval, frame = vc.read()
+    cv2.namedWindow("webcam")
+
 
     #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
-    cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    #cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
-    bbox = cv2.selectROI("webcam", frame, False)
+    bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
     #Should we draw the bounding box?
+
+    # Initialize tracker with first frame and bounding box
+    rval = tracker.init(frame, bounding_rectangle.array_representation)
 
     ########Estimate Initial Jacobian##############
 
@@ -82,23 +89,29 @@ if __name__ == '__main__' :
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
     #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
     #movement has been completed or a timout occurs.
-    server.sendData(base_angle,0)
-    #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
-    rval, frame = vc.read()
-    #This is also a (u,v) tuple
+    #robot_movement_thread = threading.Thread(target=server.sendData(base_angle,0))
+    robot_movement_thread = Thread(target=we_will_wait)
+    robot_movement_thread.start()
+    #previous_feature_point is a (u,v) tuple
     previous_feature_point = feature_point
-    if rval:
-        cv2.imshow("webcam", frame)
+    while robot_movement_thread.is_alive() and rval:
+        rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
         if ok:
             # Tracking success
             feature_point = bounding_rectangle.centre 
+            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
             #Should we show updated bounding box on frame?
         else :
             # Tracking failure
             print("Tracking Failure")
             #Recover by using detection? Or else we have to terminate the program here.
+        cv2.imshow("webcam", frame)
+        k = cv2.waitKey(1) & 0xff
+        if k == 27 : break
+
     #Compute delta of u and delta v. Both points are stored as (u,v) tuples
     #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
     delta_u = feature_point[0] - previous_feature_point[0]
@@ -110,23 +123,30 @@ if __name__ == '__main__' :
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
     #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
     #movement has been completed or a timout occurs.
-    server.sendData(0,joint_angle)
+    #server.sendData(0,joint_angle)
+    robot_movement_thread = Thread(target=we_will_wait)
+    robot_movement_thread.start()
     #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
     # rval, frame = vc.read()
     #This is also a (u,v) tuple
     previous_feature_point = feature_point
-    if rval:
-        cv2.imshow("webcam", frame)
+    while robot_movement_thread.is_alive() and rval:
+        rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
         if ok:
             # Tracking success
             feature_point = bounding_rectangle.centre 
+            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
             #Should we show updated bounding box on frame?
         else :
             # Tracking failure
             print("Tracking Failure")
             #Recover by using detection? Or else we have to terminate the program here.
+        cv2.imshow("webcam", frame)
+        k = cv2.waitKey(1) & 0xff
+        if k == 27 : break       
     #Compute delta of u and delta v. Both points are stored as (u,v) tuples
     #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
     delta_u = feature_point[0] - previous_feature_point[0]
@@ -138,15 +158,12 @@ if __name__ == '__main__' :
     #############End of Initial Jacobian Estimation#########################
     
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-    target_bbox = cv2.selectROI("webcam", frame, False, True)
+    target_bbox = cv2.selectROI("webcam", frame, False)
     target_bounding_rectange = Rectangle(target_bbox)
     target_point = target_bounding_rectange.centre
 
-
-
-    # Initialize tracker with first frame and bounding box
-    rval = tracker.init(frame, bbox)
- 
+    #############Start Visual Servoing##########################
+    
     while rval:
         # Read a new frame
         rval, frame = vc.read()
