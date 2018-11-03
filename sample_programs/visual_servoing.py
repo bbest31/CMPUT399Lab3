@@ -40,6 +40,20 @@ def we_will_wait():
     sleep(10)
     print("Done")
 
+#Feature point and target point are both (u,v) tuples
+#Returns an error tuple (error_in_u, error_in_v)
+def compute_error(current_position, target_position):
+    return (target_position[0] - current_position[0], target_position[1] - current_position[1])
+
+def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
+    #We need to make sure these are numpy objects.
+    position_vector = np.array(position_vector)
+    angle_vector = np.array(angle_vector)
+    jacobian_matrix = np.mat(jacobian_matrix)
+    #Compute the fraction term separately (for clarity)
+    fraction = (position_vector - (jacobian_matrix * angle_vector))/(angle_vector*angle_vector)
+    #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
+    return  jacobian_matrix + (alpha * franction * angle_vector)
 
 def initial_jacobian_column(base_angle, joint_angle):
     print ("Function to estimate initial jacobian column")
@@ -163,35 +177,61 @@ if __name__ == '__main__' :
 
     #############Start Visual Servoing##########################
 
-    while rval:
-        # Read a new frame
-        rval, frame = vc.read()
-        # Start timer
-        timer = cv2.getTickCount()
-        # Update tracker
-        ok, bbox = tracker.update(frame)
-        bounding_rectangle = Rectangle(bbox)
-        # Calculate Frames per second (FPS)
-        fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-        # Draw bounding box
-        if ok:
-            # Tracking success
-            feature_point = bounding_rectangle.centre 
-            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-            cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-            cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-            cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
+    #Initial Error
+    error_vector = compute_error(feature_point, target_point)
+    alpha = 0.5
+    scaling = 0.5
 
-        else :
-            # Tracking failure
-            cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-        # Display tracker type on frame
-        cv2.putText(frame, tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
-        # Display FPS on frame
-        cv2.putText(frame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-        # Display result
-        cv2.imshow("webcam", frame)
-        # Exit if ESC pressed
-        k = cv2.waitKey(1) & 0xff
-        if k == 27 : break
+    while (error_vector[0] < 1 and error_vector[1] < 1):
+
+        #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter we adjust empirically, in order
+        #to have some degree of control over how large are the angles.
+        #angles is a vector of the form [base_angle, joint_angle]
+        angles = scaling * np.linalg.solve(jacobian_matrix,error_vector)
+
+        #Send a move command with the joint_angles vector to the robot
+        robot_movement_thread = Thread(target=we_will_wait)
+        #server.sendData(angles[0], angles[1])
+        robot_movement_thread.start()
+        #While robot is moving
+        while robot_movement_thread.is_alive() and rval:
+            # Read a new frame
+            rval, frame = vc.read()
+            # Start timer
+            timer = cv2.getTickCount()
+            # Update tracker
+            ok, bbox = tracker.update(frame)
+            bounding_rectangle = Rectangle(bbox)
+            # Calculate Frames per second (FPS)
+            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+            # Draw bounding box
+            if ok:
+                # Tracking success
+                feature_point = bounding_rectangle.centre 
+                cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+                cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
+                cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+                cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+                cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
+
+            else :
+                # Tracking failure
+                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+
+            # Display tracker type on frame
+            cv2.putText(frame, tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
+            # Display FPS on frame
+            cv2.putText(frame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+            # Display result
+            cv2.imshow("webcam", frame)
+            # Exit if ESC pressed
+            k = cv2.waitKey(1) & 0xff
+            if k == 27 : break
+        
+        #Broyden Update
+        jacobian_matrix = broyden_update(jacobian_matrix, feature_point, angles, alpha)
+
+        #Compute the error between the current position of the end effector and the target
+        error_vector = compute_error(feature_point, target_point)
+
+
