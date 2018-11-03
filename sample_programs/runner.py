@@ -2,8 +2,8 @@ from client import Client
 from ev3dev.ev3 import *
 import socket
 
-motorA = LargeMotor(OUTPUT_D)
-motorB = LargeMotor(OUTPUT_C)
+motorA = LargeMotor(OUTPUT_A)
+motorB = LargeMotor(OUTPUT_B)
 clint = Client(9999)
 
 while True:
@@ -15,7 +15,12 @@ while True:
     if(data == 'exit'):
         break
     else:
-        a,b = map(int,map(str,data.split('\t'))) 
+        a,b = map(float,map(str,data.split('\t'))) 
         print(str(a)+ " " + str(b))
-        motorA.run_to_rel_pos(position_sp=a, speed_sp = 80)
-        motorB.run_to_rel_pos(position_sp=b, speed_sp = 80)
+        a = int(a) % 360
+        a = min([a, a - 360], key=lambda x: abs(x))
+        b = int(b) % 360
+        b = min([b, b - 360], key=lambda x: abs(x))
+        print("After Processing: " + str(a)+ " " + str(b))
+        motorA.run_to_rel_pos(position_sp=-a, speed_sp = 50)
+        motorB.run_to_rel_pos(position_sp=b, speed_sp = 50)

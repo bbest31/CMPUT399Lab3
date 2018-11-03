@@ -46,17 +46,41 @@ def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
     position_vector = np.array(position_vector)
     angle_vector = np.array(angle_vector)
     jacobian_matrix = np.mat(jacobian_matrix)
+    print("--------------------------")
+    print("Jacobian: ")
+    print(jacobian_matrix)
+    print("Angles")
+    print(angle_vector)
+    print("Position")
+    print(position_vector)
+    print("J*delta_q")
+    print(jacobian_matrix.dot(angle_vector))
+    print("delta_y - J*delta_q")
+    print(position_vector - jacobian_matrix.dot(angle_vector))
+    print("Scale Up by angle vector")
+    print(np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector))
+    print("Angle Squared")
+    print(angle_vector.dot(angle_vector))
+
     #Compute the fraction term separately (for clarity)
-    fraction = ((position_vector - (np.array(jacobian_matrix) * angle_vector))*angle_vector)/(angle_vector*angle_vector)
+    numerator = np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector)
+    denominator = angle_vector.dot(angle_vector)
+    #This will essentially divide the 2x2 matrix in the numerator
+    #By the squared norm of the the angles
+    fraction = numerator/denominator
+    print("Fraction")
+    print(fraction) 
+    print("--------------------------")
+
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
-    return  jacobian_matrix + np.mat(alpha * fraction)
+    return  jacobian_matrix + (alpha * fraction)
 
 if __name__ == '__main__' :
  
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
-    vc = cv2.VideoCapture(0)
+    vc = cv2.VideoCapture(1)
 
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()
@@ -88,8 +112,8 @@ if __name__ == '__main__' :
 
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
-    base_angle = 5
-    joint_angle = 10
+    base_angle = 15
+    joint_angle = 15
 
     ############This will compute the first column of the initial jacobian. Will encapsulate in a function.#################
 
@@ -178,9 +202,9 @@ if __name__ == '__main__' :
     #Initial Error
     error_vector = compute_error(feature_point, target_point)
     #Constants for scaling the results (as shown in the last lab)
-    alpha = 5
-    scaling = 0.8
-    
+    alpha = 20
+    scaling = 0.5
+    print("FIrst error vector " + str(error_vector))
     #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26
     while True:
         #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter we adjust empirically, in order
@@ -230,7 +254,7 @@ if __name__ == '__main__' :
             if k == 27 : break
         
         #Broyden Update
-        position_delta = (feature_point[0] - previous_feature_point[0], feature_point[1] - previous_feature_point[1]))
+        position_delta = (feature_point[0] - previous_feature_point[0], feature_point[1] - previous_feature_point[1])
         print("Prev Feature" + str(previous_feature_point))
         print("Current POs" + str(feature_point)) 
         print("Delta: " + str(position_delta))
