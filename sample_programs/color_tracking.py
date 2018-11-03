@@ -19,6 +19,10 @@ redUpperHighMask = (180,255,255)
 blueLowerLowMask = (100,150,0)
 blueUpperLowMask = (140,255,255)
 
+#Organge
+oragngeLowMask= (5, 50, 50)
+orangeHighMask= (15, 255, 255)
+
 cv2.namedWindow("webcam")
 vc = cv2.VideoCapture(0)
 
@@ -37,7 +41,7 @@ while rval:
     #lowMask = cv2.inRange(hsv, redLowerLowMask, redUpperLowMask)
     #highMask = cv2.inRange(hsv, redLowerHighMask, redUpperHighMask)
     #mask =   highMask + lowMask 
-    mask = cv2.inRange(hsv, blueLowerLowMask, blueUpperLowMask)
+    mask = cv2.inRange(hsv, oragngeLowMask, orangeHighMask)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
     mask = cv2.erode(mask, np.ones((11, 11),np.uint8), iterations=2)
     mask = cv2.dilate(mask, np.ones((11, 11),np.uint8), iterations=5)

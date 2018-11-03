@@ -6,17 +6,21 @@ import os
 
 class Client:
     def __init__(self,port):
-        addr = os.getenv("SSH_CONNECTION").split() # [client_IP, client_port, server_IP, server_port] 
-    
-        host = "169.254.49.72"
+        
+        #We need to use the ipv4 address that shows up in ipconfig in the computer
+
+        host = "169.254.105.60"
+
         print("setting up client, address =", host, "port =", port)
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.s.connect((host, port))                               
         
 
-    def query(self):
-        self.s.send("query".encode('UTF-8'))
-        print('sending query')
+    def pollData(self):
+        print("Waiting for Data")
         data = self.s.recv(128).decode("UTF-8")
-        print('query received')
+        print("Data Received")
         return data
+    
+    def sendAcknowledgement(self):
+        print("test")

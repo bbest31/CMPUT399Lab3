@@ -8,7 +8,7 @@ from time import sleep
 
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-#server = Server("localhost",9999)
+server = Server("127.0.0.1",9999)
 
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -35,28 +35,21 @@ def choose_tracking_method(index,minor_ver):
             tracker = cv2.TrackerCSRT_create()
     return tracker, tracker_type
 
-#Temporary method to mimic the blocking behaviour of the server
-def we_will_wait():
-    sleep(10)
-    print("Done")
-
 #Feature point and target point are both (u,v) tuples
 #Returns an error tuple (error_in_u, error_in_v)
 def compute_error(current_position, target_position):
     return (target_position[0] - current_position[0], target_position[1] - current_position[1])
 
+#This is an implementation of what we have in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf (pages 25 and 26)
 def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
     #We need to make sure these are numpy objects.
     position_vector = np.array(position_vector)
     angle_vector = np.array(angle_vector)
     jacobian_matrix = np.mat(jacobian_matrix)
     #Compute the fraction term separately (for clarity)
-    fraction = (position_vector - (jacobian_matrix * angle_vector))/(angle_vector*angle_vector)
+    fraction = ((position_vector - (np.array(jacobian_matrix) * angle_vector))*angle_vector)/(angle_vector*angle_vector)
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
-    return  jacobian_matrix + (alpha * franction * angle_vector)
-
-def initial_jacobian_column(base_angle, joint_angle):
-    print ("Function to estimate initial jacobian column")
+    return  jacobian_matrix + np.mat(alpha * fraction)
 
 if __name__ == '__main__' :
  
@@ -84,7 +77,6 @@ if __name__ == '__main__' :
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
-    #Should we draw the bounding box?
 
     # Initialize tracker with first frame and bounding box
     rval = tracker.init(frame, bounding_rectangle.array_representation)
@@ -93,31 +85,34 @@ if __name__ == '__main__' :
 
     #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
     feature_point = bounding_rectangle.centre 
+
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
-    base_angle = 6
-    joint_angle = 9
+    base_angle = 5
+    joint_angle = 10
 
-    ############This will compute the first column. Will encapsulate in a function.#################
+    ############This will compute the first column of the initial jacobian. Will encapsulate in a function.#################
 
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
     #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
     #movement has been completed or a timout occurs.
-    #robot_movement_thread = threading.Thread(target=server.sendData(base_angle,0))
-    robot_movement_thread = Thread(target=we_will_wait)
+    robot_movement_thread = Thread(target=server.sendData, args=(base_angle,0))
     robot_movement_thread.start()
     #previous_feature_point is a (u,v) tuple
     previous_feature_point = feature_point
+    #While the thread handling the robot movement is alive we assume the robot is moving.
+    #We update the trackers and the frames
     while robot_movement_thread.is_alive() and rval:
         rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
         if ok:
             # Tracking success
+            #Update the current position of the end effector
             feature_point = bounding_rectangle.centre 
+            #Draw rectangles
             cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
             cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-            #Should we show updated bounding box on frame?
         else :
             # Tracking failure
             print("Tracking Failure")
@@ -131,28 +126,30 @@ if __name__ == '__main__' :
     delta_u = feature_point[0] - previous_feature_point[0]
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
-    #########This will compute the second column. Will encapsulate in a function.###############
+    print("Column1: " + str(jacobian_column_1))
+
+    #########This will compute the second column of the initial Jacobian. Will encapsulate in a function.###############
  
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
     #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
     #movement has been completed or a timout occurs.
-    #server.sendData(0,joint_angle)
-    robot_movement_thread = Thread(target=we_will_wait)
+    robot_movement_thread = Thread(target=server.sendData, args=(0,joint_angle))
     robot_movement_thread.start()
-    #After the move is complete, we read the data from the camera to determine delta of u and v for the first column.
-    # rval, frame = vc.read()
-    #This is also a (u,v) tuple
+    #This is also a (u,v) tuple. Keeps current position to be used in the delta later
     previous_feature_point = feature_point
+    #While the thread handling the robot movement is alive we assume the robot is moving.
+    #We update the trackers and the frames   
     while robot_movement_thread.is_alive() and rval:
         rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
         bounding_rectangle = Rectangle(bbox)
         if ok:
             # Tracking success
+            #Update the current position of the end effector
             feature_point = bounding_rectangle.centre 
+            #Draw rectangles
             cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
             cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-            #Should we show updated bounding box on frame?
         else :
             # Tracking failure
             print("Tracking Failure")
@@ -165,8 +162,9 @@ if __name__ == '__main__' :
     delta_u = feature_point[0] - previous_feature_point[0]
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_2 = [delta_u / joint_angle , delta_v / joint_angle]
-
-    jacobian_matrix = np.asmatrix(np.column_stack((jacobian_column_1, jacobian_column_2)))
+    print("Column2: " + str(jacobian_column_2))
+    #Join the two columns and transpose them (they were stored as row vectors)
+    jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
     print(jacobian_matrix)
     #############End of Initial Jacobian Estimation#########################
     
@@ -179,21 +177,23 @@ if __name__ == '__main__' :
 
     #Initial Error
     error_vector = compute_error(feature_point, target_point)
-    alpha = 0.5
-    scaling = 0.5
-
-    while (error_vector[0] < 1 and error_vector[1] < 1):
-
+    #Constants for scaling the results (as shown in the last lab)
+    alpha = 5
+    scaling = 0.8
+    
+    #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26
+    while True:
         #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter we adjust empirically, in order
         #to have some degree of control over how large are the angles.
         #angles is a vector of the form [base_angle, joint_angle]
         angles = scaling * np.linalg.solve(jacobian_matrix,error_vector)
-
+        print(angles)
         #Send a move command with the joint_angles vector to the robot
-        robot_movement_thread = Thread(target=we_will_wait)
-        #server.sendData(angles[0], angles[1])
+        robot_movement_thread = Thread(target=server.sendData, args=(angles[0], angles[1]))
         robot_movement_thread.start()
         #While robot is moving
+        #We store the current position of the end effector to calculate the delta
+        previous_feature_point = feature_point
         while robot_movement_thread.is_alive() and rval:
             # Read a new frame
             rval, frame = vc.read()
@@ -204,10 +204,11 @@ if __name__ == '__main__' :
             bounding_rectangle = Rectangle(bbox)
             # Calculate Frames per second (FPS)
             fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-            # Draw bounding box
             if ok:
                 # Tracking success
+                #Update end effector position
                 feature_point = bounding_rectangle.centre 
+                # Draw bounding box
                 cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
                 cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
                 cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
@@ -229,9 +230,16 @@ if __name__ == '__main__' :
             if k == 27 : break
         
         #Broyden Update
-        jacobian_matrix = broyden_update(jacobian_matrix, feature_point, angles, alpha)
+        position_delta = (feature_point[0] - previous_feature_point[0], feature_point[1] - previous_feature_point[1]))
+        print("Prev Feature" + str(previous_feature_point))
+        print("Current POs" + str(feature_point)) 
+        print("Delta: " + str(position_delta))
+        #Perform a rank 1 update of the jacobian
+        jacobian_matrix = broyden_update(jacobian_matrix, position_delta , angles, alpha)
 
         #Compute the error between the current position of the end effector and the target
         error_vector = compute_error(feature_point, target_point)
+        print("error vector: " + str(error_vector))
+
 
 
