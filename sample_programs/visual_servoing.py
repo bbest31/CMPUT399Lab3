@@ -80,7 +80,7 @@ if __name__ == '__main__' :
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
-    vc = cv2.VideoCapture(1)
+    vc = cv2.VideoCapture(0)
 
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()
@@ -112,8 +112,8 @@ if __name__ == '__main__' :
 
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
-    base_angle = 9
-    joint_angle = 9
+    base_angle = 15
+    joint_angle = 15
 
     ############This will compute the first column of the initial jacobian. Will encapsulate in a function.#################
 
@@ -206,7 +206,7 @@ if __name__ == '__main__' :
     scaling = 0.5
     print("FIrst error vector " + str(error_vector))
     #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26
-    while True:
+    while np.linalg.norm(error_vector) > 7.5:
         #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter we adjust empirically, in order
         #to have some degree of control over how large are the angles.
         #angles is a vector of the form [base_angle, joint_angle]
@@ -265,5 +265,5 @@ if __name__ == '__main__' :
         error_vector = compute_error(feature_point, target_point)
         print("error vector: " + str(error_vector))
 
-
+    print("Done")
 

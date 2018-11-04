@@ -10,7 +10,7 @@ class Server:
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         #host = socket.gethostname()   
         #We need to use the ip address that shows up in ipconfig
-        host = "169.254.222.14"
+        host = "169.254.105.60"
         print ("host: ", host)                        
         port = 9999
 
@@ -32,7 +32,6 @@ class Server:
         data = str(base_angle)+"\t"+str(joint_angle)
         print("Sending Data: (" + data + ") to robot.")
         self.cs.send(data.encode("UTF-8"))
-        #print("Waiting for acknowledgement")
-        print("Pop")
+        #Waiting for acknowledgement
         ack = self.cs.recv(128).decode("UTF-8")
-        print("Pop1")
+
