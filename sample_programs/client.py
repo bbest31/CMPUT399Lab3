@@ -9,7 +9,7 @@ class Client:
         
         #We need to use the ipv4 address that shows up in ipconfig in the computer
 
-        host = "169.254.105.60"
+        host = "169.254.186.160"
 
         print("setting up client, address =", host, "port =", port)
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -23,4 +23,7 @@ class Client:
         return data
     
     def sendAcknowledgement(self):
-        self.s.send("Done".encode("UTF-8"))
+        self.s.send("DONE".encode("UTF-8"))
+
+    def sendReset(self):
+        self.s.send("RESET".encode("UTF-8"))

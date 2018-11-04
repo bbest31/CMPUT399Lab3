@@ -10,7 +10,7 @@ class Server:
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         #host = socket.gethostname()   
         #We need to use the ip address that shows up in ipconfig
-        host = "169.254.105.60"
+        host = "169.254.186.160"
         print ("host: ", host)                        
         port = 9999
 
