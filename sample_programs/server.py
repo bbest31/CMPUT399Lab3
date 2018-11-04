@@ -33,5 +33,6 @@ class Server:
         print("Sending Data: (" + data + ") to robot.")
         self.cs.send(data.encode("UTF-8"))
         #print("Waiting for acknowledgement")
-        #ack = self.cs.recv(128).decode("UTF-8")
-        time.sleep(25)
+        print("Pop")
+        ack = self.cs.recv(128).decode("UTF-8")
+        print("Pop1")

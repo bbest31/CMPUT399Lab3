@@ -23,9 +23,10 @@ while True:
         b = int(b) % 360
         b = min([b, b - 360], key=lambda x: abs(x))
         print("After Processing: " + str(a)+ " " + str(b))
-        sleep(15)
+        sleep(2)
         motorA.run_to_rel_pos(position_sp=a, speed_sp = 50)
         motorB.run_to_rel_pos(position_sp=b, speed_sp = 50)
         sleep(5)
         motorA.stop()
         motorB.stop()
+        clint.sendAcknowledgement()

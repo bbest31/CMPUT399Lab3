@@ -23,4 +23,4 @@ class Client:
         return data
     
     def sendAcknowledgement(self):
-        print("test")
+        self.s.send("Done".encode("UTF-8"))
