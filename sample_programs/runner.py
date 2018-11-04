@@ -1,6 +1,7 @@
 from client import Client
 from ev3dev.ev3 import *
 import socket
+from time import sleep
 
 motorA = LargeMotor(OUTPUT_A)
 motorB = LargeMotor(OUTPUT_B)
@@ -22,5 +23,9 @@ while True:
         b = int(b) % 360
         b = min([b, b - 360], key=lambda x: abs(x))
         print("After Processing: " + str(a)+ " " + str(b))
-        motorA.run_to_rel_pos(position_sp=-a, speed_sp = 50)
+        sleep(15)
+        motorA.run_to_rel_pos(position_sp=a, speed_sp = 50)
         motorB.run_to_rel_pos(position_sp=b, speed_sp = 50)
+        sleep(5)
+        motorA.stop()
+        motorB.stop()

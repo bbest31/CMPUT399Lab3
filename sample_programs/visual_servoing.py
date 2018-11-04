@@ -112,8 +112,8 @@ if __name__ == '__main__' :
 
     #These are angles that we will use to estimate the initial image jacobian.
     #They can remain hardcoded as they will only be used once. 
-    base_angle = 15
-    joint_angle = 15
+    base_angle = 9
+    joint_angle = 9
 
     ############This will compute the first column of the initial jacobian. Will encapsulate in a function.#################
 
@@ -151,7 +151,7 @@ if __name__ == '__main__' :
     delta_v = feature_point[1] - previous_feature_point[1]
     jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
     print("Column1: " + str(jacobian_column_1))
-
+    sleep(5)
     #########This will compute the second column of the initial Jacobian. Will encapsulate in a function.###############
  
     #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
@@ -202,7 +202,7 @@ if __name__ == '__main__' :
     #Initial Error
     error_vector = compute_error(feature_point, target_point)
     #Constants for scaling the results (as shown in the last lab)
-    alpha = 20
+    alpha = 0.5
     scaling = 0.5
     print("FIrst error vector " + str(error_vector))
     #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26

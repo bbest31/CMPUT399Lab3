@@ -10,7 +10,7 @@ class Server:
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         #host = socket.gethostname()   
         #We need to use the ip address that shows up in ipconfig
-        host = "169.254.186.160"
+        host = "169.254.222.14"
         print ("host: ", host)                        
         port = 9999
 
@@ -34,4 +34,4 @@ class Server:
         self.cs.send(data.encode("UTF-8"))
         #print("Waiting for acknowledgement")
         #ack = self.cs.recv(128).decode("UTF-8")
-        time.sleep(7)
+        time.sleep(25)
