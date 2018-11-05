@@ -48,11 +48,11 @@ def obstacle_detected(queue):
     return obstacle_detected
 
 
-
 #Returns a Rectangle Object, representing the tracker bounding box.
 def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, queue):
     robot_movement_thread = Thread(target=server.sendAngles, args=(base_angle,joint_angle, queue))
     robot_movement_thread.start() 
+    tracking_failed = False
     while robot_movement_thread.is_alive():
         rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
@@ -67,16 +67,25 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
             cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
+            tracking_failed = False
         else :
             # Tracking failure
             print("Tracking Failure")
-            cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-            #Recover by using detection? Or else we have to terminate the program here.
+            tracking_failed = True
+
         cv2.imshow("webcam", frame)
         k = cv2.waitKey(1) & 0xff
         if k == 27 : break
-        
-    return bounding_rectangle
+    #If we lost tracking and couldn't recover, we need the user to manually select the end effector:
+    if tracking_failed:
+        rval, frame = vc.read()
+        cv2.putText(frame, "Tracking failure detected.", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+        cv2.putText(frame, "Please select End Effector", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+        cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
+        bbox = cv2.selectROI("webcam",frame, False)
+        bounding_rectangle = Rectangle(bbox)
+
+    return tracking_failed, bounding_rectangle
 
 
 #This is an implementation of what we have in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf (pages 25 and 26)
@@ -101,7 +110,7 @@ def initial_jacobian(tracker, vc, previous_position, target_point, server, queue
     joint_angle = 15
     #Calculate first column of the initial Jacobian
     #This is done by moving the base and fixing the joint
-    end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_point, server, queue)
+    tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_point, server, queue)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
@@ -109,7 +118,7 @@ def initial_jacobian(tracker, vc, previous_position, target_point, server, queue
     previous_position = current_position
     #Calculate second column of the initial Jacobian
     #This is done by moving the joint and fixing the base
-    end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle, target_point, server, queue)
+    tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle, target_point, server, queue)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
@@ -205,7 +214,11 @@ if __name__ == '__main__' :
         #Store current position as the previous position. To be used to get the difference in movement.
         previous_feature_point = feature_point
         #Move the robot by the amount specified in the angles vector
-        end_effector_bounding_box = move_and_track(tracker, vc, angles[0], angles[1], target_point, server, queue)
+        tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, angles[0], angles[1], target_point, server, queue)
+        if (tracking_failed):
+            #reinitialize tracker if tracking has failed
+            tracker, tracker_type = choose_tracking_method(2,minor_ver)
+            rval = tracker.init(frame, end_effector_bounding_box.array_representation)
         #Position of the end effector after the move. (This is the current position of the end effector)
         feature_point = end_effector_bounding_box.centre
         #If safe mode is active and an obstacle was detected during the move: recompute initial jacobian, current position, error vector. Also, skip Broydens update 
