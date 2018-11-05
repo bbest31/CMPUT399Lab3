@@ -7,8 +7,8 @@ from time import sleep
 
 base_motor = LargeMotor(OUTPUT_A)
 joint_motor = LargeMotor(OUTPUT_B)
-#left_sensor = ColorSensor('in1')
-#right_sensor = ColorSensor('in2')
+left_sensor = ColorSensor(INPUT_1)
+right_sensor = ColorSensor(INPUT_2)
 client = Client(9999)
 joint_motor.reset()
 base_motor.reset()
@@ -32,14 +32,25 @@ while True:
         timer_thread = Thread(target=sleep, args=(5,))
         timer_thread.start()
         print("Wait 5 seconds")
+        obstacle_evaded = False
         while timer_thread.is_alive():
-            pass
-            # Check sensor
-            #if(left_sensor.color == 5 or right_sensor.color == 5):
-            #    avoid(base_angle, base_motor, joint_motor)
-            #    client.sendReset()
+            #Check sensor
+            if(left_sensor.color == 5 or right_sensor.color == 5):
+                print("Avoiding Obstacle")
+                avoid(base_angle, base_motor, joint_motor)
+                obstacle_evaded = True
         print("Done with 5 seconds")
 
         base_motor.stop()
         joint_motor.stop()
-        client.sendAcknowledgement()
+        if (obstacle_evaded):
+            #If an obstacle was evaded we send a message to the server
+            #to let it know that it should recompute the initial jacobian
+            #and start the visual servoing from scratch at the resulting location
+            client.sendReset()
+        else:
+            #If no obstacle was detected, we assume that the movement was executed without
+            #any issues. We send a message to the server letting it know that the robot is done
+            #moving and that it can update the jacobian matrix using the current position of the
+            #end effector.
+            client.sendDone()
