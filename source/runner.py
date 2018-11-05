@@ -26,8 +26,8 @@ while True:
         joint_angle = int(joint_angle) % 360
         joint_angle = min([joint_angle, joint_angle - 360], key=lambda x: abs(x))
         print("After Processing: " + str(base_angle)+ " " + str(joint_angle))
-        base_motor.run_to_rel_pos(position_sp=base_angle, speed_sp = 50)
-        joint_motor.run_to_rel_pos(position_sp=joint_angle, speed_sp = 50)
+        base_motor.run_to_rel_pos(position_sp=base_angle, speed_sp = 30)
+        joint_motor.run_to_rel_pos(position_sp=joint_angle, speed_sp = 30)
 
         timer_thread = Thread(target=sleep, args=(5,))
         timer_thread.start()
