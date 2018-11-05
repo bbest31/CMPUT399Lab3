@@ -63,9 +63,9 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
             current_position = bounding_rectangle.centre 
             #Draw rectangles
             cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-            cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 128, 255), -1) 
-            cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-            cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+            cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 0, 0), -1) 
+            cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+            cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
         else :
             # Tracking failure
@@ -147,7 +147,7 @@ if __name__ == '__main__' :
     cv2.namedWindow("webcam")
 
     #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
-    cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 127, 0), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
@@ -156,10 +156,10 @@ if __name__ == '__main__' :
     #Display feature point position and coordinates in the next frame
     rval, frame = vc.read()
     cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-    cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
+    cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 0, 0), -1) 
     cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
     #Display prompt to select target point
-    cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 127, 0), 2)
     target_bbox = cv2.selectROI("webcam", frame, False)
     #Store Target point the corresponding variables. These variables
     #are treated as constants
