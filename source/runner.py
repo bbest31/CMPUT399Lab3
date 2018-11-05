@@ -7,8 +7,8 @@ from time import sleep
 
 base_motor = LargeMotor(OUTPUT_A)
 joint_motor = LargeMotor(OUTPUT_B)
-left_sensor = ColorSensor('in1')
-right_sensor = ColorSensor('in2')
+#left_sensor = ColorSensor('in1')
+#right_sensor = ColorSensor('in2')
 client = Client(9999)
 joint_motor.reset()
 base_motor.reset()
@@ -33,10 +33,11 @@ while True:
         timer_thread.start()
         print("Wait 5 seconds")
         while timer_thread.is_alive():
+            pass
             # Check sensor
-            if(left_sensor.color == 5 or right_sensor.color == 5):
-                avoid(base_angle, base_motor, joint_motor)
-                client.sendReset()
+            #if(left_sensor.color == 5 or right_sensor.color == 5):
+            #    avoid(base_angle, base_motor, joint_motor)
+            #    client.sendReset()
         print("Done with 5 seconds")
 
         base_motor.stop()

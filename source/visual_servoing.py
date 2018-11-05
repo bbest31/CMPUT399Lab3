@@ -89,7 +89,7 @@ def initial_jacobian(tracker, vc, previous_position, target_point):
     joint_angle = 15
     #Calculate first column of the initial Jacobian
     #This is done by moving the base and fixing the joint
-    end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0)
+    end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_point)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
@@ -98,7 +98,7 @@ def initial_jacobian(tracker, vc, previous_position, target_point):
     previous_position = current_position
     #Calculate second column of the initial Jacobian
     #This is done by moving the joint and fixing the base
-    end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle)
+    end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle, target_point)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
@@ -134,10 +134,12 @@ if __name__ == '__main__' :
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
+    #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
+    feature_point = bounding_rectangle.centre 
     #Display feature point position and coordinates in the next frame
     rval, frame = vc.read()
     cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-    cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 128, 255), -1) 
+    cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
     cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
     #Display prompt to select target point
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
@@ -153,8 +155,7 @@ if __name__ == '__main__' :
 
     ########Estimate Initial Jacobian##############
 
-    #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
-    feature_point = bounding_rectangle.centre 
+
 
     jacobian_matrix = initial_jacobian(tracker, vc, feature_point, target_point)
 
@@ -190,7 +191,7 @@ if __name__ == '__main__' :
         angles = scaling * np.linalg.solve(jacobian_matrix,error_vector)
 
         previous_feature_point = feature_point
-        end_effector_bounding_box = move_and_track(tracker, vc, base_angle, joint_angle, target_point)
+        end_effector_bounding_box = move_and_track(tracker, vc, angles[0], angles[1], target_point)
         feature_point = end_effector_bounding_box.centre
         #Broyden Update
         position_delta = compute_delta(previous_feature_point, feature_point)
