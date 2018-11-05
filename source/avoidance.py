@@ -6,18 +6,15 @@ from ev3dev.ev3 import *
 import socket
 from time import sleep
 
-base_motor = LargeMotor(OUTPUT_A)
-joint_motor = LargeMotor(OUTPUT_B)
 
-
-def avoid(base_rot):
-    coil(base_rot)
+def avoid(base_rot, base_motor, joint_motor):
+    coil(base_rot,base_motor, joint_motor)
     sleep(3)
-    uncoil(base_rot)
+    uncoil(base_rot,base_motor, joint_motor)
 
 
 # Calculates the smallest angle of movement needed to get to the end effector coiled over the joint motor
-def coil_joint():
+def coil_joint(base_motor, joint_motor):
     joint_coil = 0
     rot_A = joint_motor.position % 360 
     rot_B = 360 - (joint_motor.position % 360)
@@ -33,7 +30,7 @@ def coil_joint():
 This method initiates the coiling of the robot arm in to a position where we can
 move to avoid an impeding obstacle.
 '''
-def coil(base_rot):
+def coil(base_rot,base_motor, joint_motor):
     arm_angle = min(joint_motor.position % 360, 360 - (joint_motor.position % 360))
     
     if(base_rot < 0):
@@ -48,7 +45,7 @@ def coil(base_rot):
         else:
             base_motor.run_to_rel_pos(position_sp=60, speed_sp = 50)
 
-        angle = coil_joint()
+        angle = coil_joint(base_motor, joint_motor)
         joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 50)
         sleep(3)
 
@@ -63,7 +60,7 @@ def coil(base_rot):
         else:
             base_motor.run_to_rel_pos(position_sp=-60, speed_sp = 50)
 
-        angle = coil_joint()
+        angle = coil_joint(base_motor, joint_motor)
         joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 50)
         sleep(3)
 
@@ -71,7 +68,7 @@ def coil(base_rot):
     joint_motor.stop()
 
 
-def uncoil(base_rot):
+def uncoil(base_rot,base_motor, joint_motor):
     if(base_rot < 0):
         base_motor.run_to_rel_pos(position_sp=-150, speed_sp = 50)
         sleep(5)
@@ -82,9 +79,3 @@ def uncoil(base_rot):
         sleep(5)
         joint_motor.run_to_rel_pos(position_sp=-180, speed_sp = 50)
         sleep(3)
-
-
-joint_motor.reset()
-joint_motor.run_to_rel_pos(position_sp=-90, speed_sp = 50)
-sleep(5)
-avoid(-10)

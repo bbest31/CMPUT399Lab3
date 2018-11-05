@@ -1,4 +1,5 @@
 from client import Client
+from avoidance import *
 from ev3dev.ev3 import *
 import socket
 from threading import Event, Thread
@@ -6,11 +7,13 @@ from time import sleep
 
 base_motor = LargeMotor(OUTPUT_A)
 joint_motor = LargeMotor(OUTPUT_B)
-clint = Client(9999)
+left_sensor = ColorSensor('in1')
+right_sensor = ColorSensor('in2')
+client = Client(9999)
 joint_motor.reset()
 base_motor.reset()
 while True:
-    data = str(clint.pollData())
+    data = str(client.pollData())
     if(data == 'EXIT'):
         base_motor.stop()
         joint_motor.stop()
@@ -30,10 +33,12 @@ while True:
         timer_thread.start()
         print("Wait 5 seconds")
         while timer_thread.is_alive():
-            pass
+            # Check sensor
+            if(left_sensor.color == 5 or right_sensor.color == 5):
+                avoid(base_angle, base_motor, joint_motor)
+                client.sendReset()
         print("Done with 5 seconds")
-
 
         base_motor.stop()
         joint_motor.stop()
-        clint.sendAcknowledgement()
+        client.sendAcknowledgement()
