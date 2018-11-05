@@ -40,7 +40,7 @@ def compute_delta(initial_vector, final_vector):
     return (final_vector[0] - initial_vector[0], final_vector[1] - initial_vector[1])
 
 #Returns a Rectangle Object, representing the tracker bounding box.
-def move_and_track(tracker, vc, base_angle, joint_angle):
+def move_and_track(tracker, vc, base_angle, joint_angle, target_point):
     robot_movement_thread = Thread(target=server.sendData, args=(base_angle,joint_angle))
     robot_movement_thread.start() 
     while robot_movement_thread.is_alive():
@@ -54,9 +54,13 @@ def move_and_track(tracker, vc, base_angle, joint_angle):
             #Draw rectangles
             cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
             cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 128, 255), -1) 
+            cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+            cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+            cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
         else :
             # Tracking failure
             print("Tracking Failure")
+            cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             #Recover by using detection? Or else we have to terminate the program here.
         cv2.imshow("webcam", frame)
         k = cv2.waitKey(1) & 0xff
@@ -80,7 +84,7 @@ def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
     return  jacobian_matrix + (alpha * fraction)
 
-def initial_jacobian(tracker, vc, previous_position):
+def initial_jacobian(tracker, vc, previous_position, target_point):
     base_angle = 15
     joint_angle = 15
     #Calculate first column of the initial Jacobian
@@ -130,6 +134,19 @@ if __name__ == '__main__' :
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
     bounding_rectangle = Rectangle(bbox)
+    #Display feature point position and coordinates in the next frame
+    rval, frame = vc.read()
+    cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+    cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 128, 255), -1) 
+    cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+    #Display prompt to select target point
+    cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+    target_bbox = cv2.selectROI("webcam", frame, False)
+    #Store Target point the corresponding variables. These variables
+    #are treated as constants
+    target_bounding_rectange = Rectangle(target_bbox)
+    target_point = target_bounding_rectange.centre
+
 
     # Initialize tracker with first frame and bounding box
     rval = tracker.init(frame, bounding_rectangle.array_representation)
@@ -139,19 +156,25 @@ if __name__ == '__main__' :
     #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
     feature_point = bounding_rectangle.centre 
 
-    jacobian_matrix = initial_jacobian(tracker, vc, feature_point)
+    jacobian_matrix = initial_jacobian(tracker, vc, feature_point, target_point)
 
     #############End of Initial Jacobian Estimation#########################
     
-    #After we have computed the initial Jacobian we prompt the user to select a target point
-    cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-    target_bbox = cv2.selectROI("webcam", frame, False)
-    target_bounding_rectange = Rectangle(target_bbox)
-    target_point = target_bounding_rectange.centre
 
     #############Start Visual Servoing##########################
     #With the target point set, and the initial jacobian calculated, we can 
     #now start the actual process for visual servoing.
+
+    #We update the feature_point to be sure that it is sync with the current position
+    #after the computation of the initial jacobian.
+    rval, frame = vc.read()
+    ok, bbox = tracker.update(frame)
+    bounding_rectangle = Rectangle(bbox)
+    if ok:
+        feature_point = bounding_rectangle.centre 
+        print("End Effector position updated: " +str(feature_point))
+    else:
+        print("Problem updating current end effector position")
 
     #Initial Error
     error_vector = compute_delta(feature_point, target_point)
@@ -165,49 +188,10 @@ if __name__ == '__main__' :
         #we adjust empirically, in order to have some degree of control over how large are the angles.
         #angles is a vector of the form [base_angle, joint_angle]
         angles = scaling * np.linalg.solve(jacobian_matrix,error_vector)
-        #Send a move command with the angles vector to the robot
-        #The robot will move the base and joint (respectively) by the amount specified
-        #in the vector.
-        robot_movement_thread = Thread(target=server.sendData, args=(angles[0], angles[1]))
-        robot_movement_thread.start()
-        #While robot is moving
-        #We store the current position of the end effector to calculate the delta
+
         previous_feature_point = feature_point
-        while robot_movement_thread.is_alive() and rval:
-            # Read a new frame
-            rval, frame = vc.read()
-            # Start timer
-            timer = cv2.getTickCount()
-            # Update tracker
-            ok, bbox = tracker.update(frame)
-            bounding_rectangle = Rectangle(bbox)
-            # Calculate Frames per second (FPS)
-            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-            if ok:
-                # Tracking success
-                #Update end effector position
-                feature_point = bounding_rectangle.centre 
-                # Draw bounding box
-                cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-                cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-                cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-                cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,110), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-                cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
-
-            else :
-                # Tracking failure
-                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-
-            # Display tracker type on frame
-            cv2.putText(frame, tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
-            # Display FPS on frame
-            cv2.putText(frame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-            # Display result
-            cv2.imshow("webcam", frame)
-            # Exit if ESC pressed
-            k = cv2.waitKey(1) & 0xff
-            if k == 27 : break
-        
+        end_effector_bounding_box = move_and_track(tracker, vc, base_angle, joint_angle, target_point)
+        feature_point = end_effector_bounding_box.centre
         #Broyden Update
         position_delta = compute_delta(previous_feature_point, feature_point)
     
