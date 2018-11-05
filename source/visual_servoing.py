@@ -85,16 +85,20 @@ def initial_jacobian(tracker, vc, previous_position):
     joint_angle = 15
     #Calculate first column of the initial Jacobian
     #This is done by moving the base and fixing the joint
-    current_position = move_and_track(tracker, vc, base_angle, 0)
+    end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0)
+    current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
+    print(jacobian_column_1)
     #Update the previous position to be the current position of the end effector.
     previous_position = current_position
     #Calculate second column of the initial Jacobian
     #This is done by moving the joint and fixing the base
-    current_position = move_and_track(tracker, vc, 0, joint_angle)
+    end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle)
+    current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
+    print(jacobian_column_2)
     #Once the two columns are computed:
     #Join the two columns and transpose them (they were stored as row vectors)
     jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
@@ -106,7 +110,7 @@ if __name__ == '__main__' :
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
-    vc = cv2.VideoCapture(0)
+    vc = cv2.VideoCapture(1)
 
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()
