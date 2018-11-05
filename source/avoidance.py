@@ -39,14 +39,14 @@ def coil(base_rot,base_motor, joint_motor):
         # Move the base away from the object
         # If the joint arm is close to 90 degrees angled then we don't need to move base as much
         if(arm_angle >= 70  and arm_angle <= 120):
-            base_motor.run_to_rel_pos(position_sp=20, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=20, speed_sp = 30)
         elif(arm_angle <= -70  and arm_angle >= -120):
-            base_motor.run_to_rel_pos(position_sp=20, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=20, speed_sp = 30)
         else:
-            base_motor.run_to_rel_pos(position_sp=60, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=60, speed_sp = 30)
 
         angle = coil_joint(base_motor, joint_motor)
-        joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 50)
+        joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 30)
         sleep(3)
 
     else:
@@ -54,14 +54,14 @@ def coil(base_rot,base_motor, joint_motor):
 
         # Move the base 90 degrees away from the object
         if(arm_angle >= 70  and arm_angle <= 120):
-            base_motor.run_to_rel_pos(position_sp=-20, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=-20, speed_sp = 30)
         elif(arm_angle <= -70  and arm_angle >= -120):
-            base_motor.run_to_rel_pos(position_sp=-20, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=-20, speed_sp = 30)
         else:
-            base_motor.run_to_rel_pos(position_sp=-60, speed_sp = 50)
+            base_motor.run_to_rel_pos(position_sp=-60, speed_sp = 30)
 
         angle = coil_joint(base_motor, joint_motor)
-        joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 50)
+        joint_motor.run_to_rel_pos(position_sp=angle, speed_sp = 30)
         sleep(3)
 
     base_motor.stop()
@@ -70,12 +70,12 @@ def coil(base_rot,base_motor, joint_motor):
 
 def uncoil(base_rot,base_motor, joint_motor):
     if(base_rot < 0):
-        base_motor.run_to_rel_pos(position_sp=-150, speed_sp = 50)
+        base_motor.run_to_rel_pos(position_sp=-150, speed_sp = 30)
         sleep(5)
-        joint_motor.run_to_rel_pos(position_sp=180, speed_sp = 50)
+        joint_motor.run_to_rel_pos(position_sp=180, speed_sp = 30)
         sleep(3)
     else :
-        base_motor.run_to_rel_pos(position_sp=150, speed_sp = 50)
+        base_motor.run_to_rel_pos(position_sp=150, speed_sp = 30)
         sleep(5)
-        joint_motor.run_to_rel_pos(position_sp=-180, speed_sp = 50)
+        joint_motor.run_to_rel_pos(position_sp=-180, speed_sp = 30)
         sleep(3)

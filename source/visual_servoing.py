@@ -189,10 +189,10 @@ if __name__ == '__main__' :
     error_vector = compute_delta(feature_point, target_point)
     #Constants for scaling the results (as shown in the last lab)
     alpha = 0.5
-    scaling = 0.5
+    scaling = 0.25
 
     #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26
-    while np.linalg.norm(error_vector) > 7.5:
+    while np.linalg.norm(error_vector) > 10:
         #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter 
         #we adjust empirically, in order to have some degree of control over how large are the angles.
         #angles is a vector of the form [base_angle, joint_angle]
