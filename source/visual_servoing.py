@@ -41,7 +41,7 @@ def compute_delta(initial_vector, final_vector):
 
 #Returns a Rectangle Object, representing the tracker bounding box.
 def move_and_track(tracker, vc, base_angle, joint_angle, target_point):
-    robot_movement_thread = Thread(target=server.sendData, args=(base_angle,joint_angle))
+    robot_movement_thread = Thread(target=server.sendAngles, args=(base_angle,joint_angle))
     robot_movement_thread.start() 
     while robot_movement_thread.is_alive():
         rval, frame = vc.read()
@@ -201,6 +201,6 @@ if __name__ == '__main__' :
 
         #Compute the error between the current position of the end effector and the target
         error_vector = compute_delta(feature_point, target_point)
-
+    server.sendTermination()
     print("Done")
 
