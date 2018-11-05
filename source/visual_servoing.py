@@ -106,8 +106,8 @@ def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
 #Returns initial jacobian and postion of the end effector after the computation
 #of the initial Jacobian
 def initial_jacobian(tracker, vc, previous_position, target_point, server, queue):
-    base_angle = 15
-    joint_angle = 15
+    base_angle = 20
+    joint_angle = 20
     #Calculate first column of the initial Jacobian
     #This is done by moving the base and fixing the joint
     tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_point, server, queue)
@@ -134,7 +134,9 @@ if __name__ == '__main__' :
 
     server = Server(9999)
     queue = Queue()
-    safe_mode_active = False
+    # Set the Safety mode HERE!#########
+    safe_mode_active = True
+    ####################################
 
     #Enable or disable safety mode on the client (Brick)
     if (safe_mode_active):
@@ -145,7 +147,7 @@ if __name__ == '__main__' :
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     
-    vc = cv2.VideoCapture(0)
+    vc = cv2.VideoCapture(1)
 
     if vc.isOpened(): # try to get the first frame
         rval, frame = vc.read()

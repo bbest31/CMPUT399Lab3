@@ -9,7 +9,7 @@ class Client:
         
         #We need to use the ipv4 address that shows up in ipconfig in the computer
 
-        host = "169.254.105.60"
+        host = "169.254.118.169"
 
         print("setting up client, address =", host, "port =", port)
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
