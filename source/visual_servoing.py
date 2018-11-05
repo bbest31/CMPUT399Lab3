@@ -105,7 +105,6 @@ def initial_jacobian(tracker, vc, previous_position, target_point, server, queue
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
-    print(jacobian_column_1)
     #Update the previous position to be the current position of the end effector.
     previous_position = current_position
     #Calculate second column of the initial Jacobian
@@ -114,7 +113,6 @@ def initial_jacobian(tracker, vc, previous_position, target_point, server, queue
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
-    print(jacobian_column_2)
     #Once the two columns are computed:
     #Join the two columns and transpose them (they were stored as row vectors)
     jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
@@ -125,9 +123,16 @@ if __name__ == '__main__' :
 
     (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-    server = Server("127.0.0.1",9999)
+    server = Server(9999)
     queue = Queue()
-    safe_mode_active = True
+    safe_mode_active = False
+
+    #Enable or disable safety mode on the client (Brick)
+    if (safe_mode_active):
+        server.sendEnableSafetyMode()
+    else:
+        server.sendDisableSafetyMode()
+
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
     

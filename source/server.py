@@ -6,15 +6,13 @@ import time
 from queue import Queue
 
 class Server:
-    def __init__(self,host, port):
+    def __init__(self,port):
        # setup server socket
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        #host = socket.gethostname()   
         #We need to use the ip address that shows up in ipconfig
         host = "169.254.105.60"
         print ("host: ", host)                        
         port = 9999
-
         serversocket.bind((host, port))                                  
         # queue up to 5 requests
         serversocket.listen(5) 
@@ -39,5 +37,12 @@ class Server:
 
     def sendTermination(self):
         self.cs.send("EXIT".encode("UTF-8"))
+
+    def sendEnableSafetyMode(self):
+        self.cs.send("SAFETY_ON".encode("UTF-8"))
+    
+    def sendDisableSafetyMode(self):
+        self.cs.send("SAFETY_OFF".encode("UTF-8"))
+
 
 
