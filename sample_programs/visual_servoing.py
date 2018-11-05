@@ -35,10 +35,35 @@ def choose_tracking_method(index,minor_ver):
             tracker = cv2.TrackerCSRT_create()
     return tracker, tracker_type
 
-#Feature point and target point are both (u,v) tuples
-#Returns an error tuple (error_in_u, error_in_v)
-def compute_error(current_position, target_position):
-    return (target_position[0] - current_position[0], target_position[1] - current_position[1])
+#Computes the delta of two vectors, where each vector is a tuple in image space (u,v)
+def compute_delta(initial_vector, final_vector):
+    return (final_vector[0] - initial_vector[0], final_vector[1] - initial_vector[1])
+
+#Returns a Rectangle Object, representing the tracker bounding box.
+def move_and_track(tracker, vc, base_angle, joint_angle):
+    robot_movement_thread = Thread(target=server.sendData, args=(base_angle,joint_angle))
+    robot_movement_thread.start() 
+    while robot_movement_thread.is_alive():
+        rval, frame = vc.read()
+        ok, bbox = tracker.update(frame)
+        bounding_rectangle = Rectangle(bbox)
+        if ok:
+            # Tracking success
+            #Update the current position of the end effector
+            current_position = bounding_rectangle.centre 
+            #Draw rectangles
+            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
+            cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 128, 255), -1) 
+        else :
+            # Tracking failure
+            print("Tracking Failure")
+            #Recover by using detection? Or else we have to terminate the program here.
+        cv2.imshow("webcam", frame)
+        k = cv2.waitKey(1) & 0xff
+        if k == 27 : break
+        
+    return bounding_rectangle
+
 
 #This is an implementation of what we have in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf (pages 25 and 26)
 def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
@@ -46,34 +71,35 @@ def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
     position_vector = np.array(position_vector)
     angle_vector = np.array(angle_vector)
     jacobian_matrix = np.mat(jacobian_matrix)
-    print("--------------------------")
-    print("Jacobian: ")
-    print(jacobian_matrix)
-    print("Angles")
-    print(angle_vector)
-    print("Position")
-    print(position_vector)
-    print("J*delta_q")
-    print(jacobian_matrix.dot(angle_vector))
-    print("delta_y - J*delta_q")
-    print(position_vector - jacobian_matrix.dot(angle_vector))
-    print("Scale Up by angle vector")
-    print(np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector))
-    print("Angle Squared")
-    print(angle_vector.dot(angle_vector))
-
     #Compute the fraction term separately (for clarity)
     numerator = np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector)
     denominator = angle_vector.dot(angle_vector)
     #This will essentially divide the 2x2 matrix in the numerator
-    #By the squared norm of the the angles
+    #By the squared norm of the the angle_vector
     fraction = numerator/denominator
-    print("Fraction")
-    print(fraction) 
-    print("--------------------------")
-
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
     return  jacobian_matrix + (alpha * fraction)
+
+def initial_jacobian(tracker, vc, previous_position):
+    base_angle = 15
+    joint_angle = 15
+    #Calculate first column of the initial Jacobian
+    #This is done by moving the base and fixing the joint
+    current_position = move_and_track(tracker, vc, base_angle, 0)
+    position_delta = compute_delta(previous_position, current_position)
+    jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
+    #Update the previous position to be the current position of the end effector.
+    previous_position = current_position
+    #Calculate second column of the initial Jacobian
+    #This is done by moving the joint and fixing the base
+    current_position = move_and_track(tracker, vc, 0, joint_angle)
+    position_delta = compute_delta(previous_position, current_position)
+    jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
+    #Once the two columns are computed:
+    #Join the two columns and transpose them (they were stored as row vectors)
+    jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
+    return jacobian_matrix
+
 
 if __name__ == '__main__' :
  
@@ -95,7 +121,6 @@ if __name__ == '__main__' :
 
     cv2.namedWindow("webcam")
 
-
     #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     #bbox is an array represending a rectangle: [x, y, height, width]
@@ -110,109 +135,35 @@ if __name__ == '__main__' :
     #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
     feature_point = bounding_rectangle.centre 
 
-    #These are angles that we will use to estimate the initial image jacobian.
-    #They can remain hardcoded as they will only be used once. 
-    base_angle = 15
-    joint_angle = 15
+    jacobian_matrix = initial_jacobian(tracker, vc, feature_point)
 
-    ############This will compute the first column of the initial jacobian. Will encapsulate in a function.#################
-
-    #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
-    #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
-    #movement has been completed or a timout occurs.
-    robot_movement_thread = Thread(target=server.sendData, args=(base_angle,0))
-    robot_movement_thread.start()
-    #previous_feature_point is a (u,v) tuple
-    previous_feature_point = feature_point
-    #While the thread handling the robot movement is alive we assume the robot is moving.
-    #We update the trackers and the frames
-    while robot_movement_thread.is_alive() and rval:
-        rval, frame = vc.read()
-        ok, bbox = tracker.update(frame)
-        bounding_rectangle = Rectangle(bbox)
-        if ok:
-            # Tracking success
-            #Update the current position of the end effector
-            feature_point = bounding_rectangle.centre 
-            #Draw rectangles
-            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-        else :
-            # Tracking failure
-            print("Tracking Failure")
-            #Recover by using detection? Or else we have to terminate the program here.
-        cv2.imshow("webcam", frame)
-        k = cv2.waitKey(1) & 0xff
-        if k == 27 : break
-
-    #Compute delta of u and delta v. Both points are stored as (u,v) tuples
-    #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
-    delta_u = feature_point[0] - previous_feature_point[0]
-    delta_v = feature_point[1] - previous_feature_point[1]
-    jacobian_column_1 = [delta_u / base_angle , delta_v / base_angle]
-    print("Column1: " + str(jacobian_column_1))
-    sleep(5)
-    #########This will compute the second column of the initial Jacobian. Will encapsulate in a function.###############
- 
-    #Moves the base by the desired angle, while the joint is fixed. This will help us estimate the first column of the Jacobian.
-    #The movement command is sent to the client (EV3 Brick) via socket. This will block until the EV3 reports back to us that the
-    #movement has been completed or a timout occurs.
-    robot_movement_thread = Thread(target=server.sendData, args=(0,joint_angle))
-    robot_movement_thread.start()
-    #This is also a (u,v) tuple. Keeps current position to be used in the delta later
-    previous_feature_point = feature_point
-    #While the thread handling the robot movement is alive we assume the robot is moving.
-    #We update the trackers and the frames   
-    while robot_movement_thread.is_alive() and rval:
-        rval, frame = vc.read()
-        ok, bbox = tracker.update(frame)
-        bounding_rectangle = Rectangle(bbox)
-        if ok:
-            # Tracking success
-            #Update the current position of the end effector
-            feature_point = bounding_rectangle.centre 
-            #Draw rectangles
-            cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
-            cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 128, 255), -1) 
-        else :
-            # Tracking failure
-            print("Tracking Failure")
-            #Recover by using detection? Or else we have to terminate the program here.
-        cv2.imshow("webcam", frame)
-        k = cv2.waitKey(1) & 0xff
-        if k == 27 : break       
-    #Compute delta of u and delta v. Both points are stored as (u,v) tuples
-    #Then divide each delta by the angle by which we just rotated. This will give us the first column of the initial Jacobian
-    delta_u = feature_point[0] - previous_feature_point[0]
-    delta_v = feature_point[1] - previous_feature_point[1]
-    jacobian_column_2 = [delta_u / joint_angle , delta_v / joint_angle]
-    print("Column2: " + str(jacobian_column_2))
-    #Join the two columns and transpose them (they were stored as row vectors)
-    jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
-    print(jacobian_matrix)
     #############End of Initial Jacobian Estimation#########################
     
+    #After we have computed the initial Jacobian we prompt the user to select a target point
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
     target_bbox = cv2.selectROI("webcam", frame, False)
     target_bounding_rectange = Rectangle(target_bbox)
     target_point = target_bounding_rectange.centre
 
     #############Start Visual Servoing##########################
+    #With the target point set, and the initial jacobian calculated, we can 
+    #now start the actual process for visual servoing.
 
     #Initial Error
-    error_vector = compute_error(feature_point, target_point)
+    error_vector = compute_delta(feature_point, target_point)
     #Constants for scaling the results (as shown in the last lab)
     alpha = 0.5
     scaling = 0.5
-    print("FIrst error vector " + str(error_vector))
+
     #This loop mimics the process outlined in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf page 26
     while np.linalg.norm(error_vector) > 7.5:
-        #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter we adjust empirically, in order
-        #to have some degree of control over how large are the angles.
+        #Solve the linear system e = J*q -> q = scaling * (inverse(J)*e). Where scaling is just a scaling parameter 
+        #we adjust empirically, in order to have some degree of control over how large are the angles.
         #angles is a vector of the form [base_angle, joint_angle]
         angles = scaling * np.linalg.solve(jacobian_matrix,error_vector)
-        print(angles)
-        #Send a move command with the joint_angles vector to the robot
+        #Send a move command with the angles vector to the robot
+        #The robot will move the base and joint (respectively) by the amount specified
+        #in the vector.
         robot_movement_thread = Thread(target=server.sendData, args=(angles[0], angles[1]))
         robot_movement_thread.start()
         #While robot is moving
@@ -254,16 +205,13 @@ if __name__ == '__main__' :
             if k == 27 : break
         
         #Broyden Update
-        position_delta = (feature_point[0] - previous_feature_point[0], feature_point[1] - previous_feature_point[1])
-        print("Prev Feature" + str(previous_feature_point))
-        print("Current POs" + str(feature_point)) 
-        print("Delta: " + str(position_delta))
+        position_delta = compute_delta(previous_feature_point, feature_point)
+    
         #Perform a rank 1 update of the jacobian
         jacobian_matrix = broyden_update(jacobian_matrix, position_delta , angles, alpha)
 
         #Compute the error between the current position of the end effector and the target
-        error_vector = compute_error(feature_point, target_point)
-        print("error vector: " + str(error_vector))
+        error_vector = compute_delta(feature_point, target_point)
 
     print("Done")
 
