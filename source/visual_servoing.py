@@ -49,15 +49,18 @@ def obstacle_detected(queue):
 
 
 #Returns a Rectangle Object, representing the tracker bounding box.
-def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, queue):
+def move_and_track(tracker, vc, base_angle, joint_angle, target_tracker, server, queue):
     robot_movement_thread = Thread(target=server.sendAngles, args=(base_angle,joint_angle, queue))
     robot_movement_thread.start() 
     tracking_failed = False
     while robot_movement_thread.is_alive():
         rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
+        ok2, tbbox = target_tracker.update(frame)
+        target_bounding_rectangle = Rectangle(tbbox)
         bounding_rectangle = Rectangle(bbox)
         if ok:
+            target_point = target_bounding_rectangle.centre
             # Tracking success
             #Update the current position of the end effector
             current_position = bounding_rectangle.centre 
@@ -85,7 +88,7 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
         bbox = cv2.selectROI("webcam",frame, False)
         bounding_rectangle = Rectangle(bbox)
 
-    return tracking_failed, bounding_rectangle
+    return tracking_failed, bounding_rectangle, target_bounding_rectangle
 
 
 #This is an implementation of what we have in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf (pages 25 and 26)
@@ -105,12 +108,12 @@ def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
 
 #Returns initial jacobian and postion of the end effector after the computation
 #of the initial Jacobian
-def initial_jacobian(tracker, vc, previous_position, target_point, server, queue):
+def initial_jacobian(tracker, vc, previous_position, target_tracker, server, queue):
     base_angle = 20
-    joint_angle = 20
+    joint_angle = 40
     #Calculate first column of the initial Jacobian
     #This is done by moving the base and fixing the joint
-    tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_point, server, queue)
+    tracking_failed, end_effector_bounding_box, target_bounding_box = move_and_track(tracker, vc, base_angle, 0, target_tracker, server, queue)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_1 = [position_delta[0] / base_angle, position_delta[1] / base_angle]
@@ -118,13 +121,14 @@ def initial_jacobian(tracker, vc, previous_position, target_point, server, queue
     previous_position = current_position
     #Calculate second column of the initial Jacobian
     #This is done by moving the joint and fixing the base
-    tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, 0, joint_angle, target_point, server, queue)
+    tracking_failed, end_effector_bounding_box, target_bounding_box = move_and_track(tracker, vc, 0, joint_angle, target_tracker, server, queue)
     current_position = end_effector_bounding_box.centre
     position_delta = compute_delta(previous_position, current_position)
     jacobian_column_2 = [position_delta[0] / joint_angle, position_delta[1] / joint_angle]
     #Once the two columns are computed:
     #Join the two columns and transpose them (they were stored as row vectors)
     jacobian_matrix = np.mat((jacobian_column_1, jacobian_column_2)).getT()
+    print(jacobian_matrix)
     return jacobian_matrix, current_position
 
 
@@ -146,6 +150,7 @@ if __name__ == '__main__' :
 
     # Set up tracker.
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
+    target_tracker, target_tracker_type = choose_tracking_method(2,minor_ver)
     
     vc = cv2.VideoCapture(1)
 
@@ -179,20 +184,21 @@ if __name__ == '__main__' :
     target_bbox = cv2.selectROI("webcam", frame, False)
     #Store Target point the corresponding variables. These variables
     #are treated as constants
-    target_bounding_rectange = Rectangle(target_bbox)
-    target_point = target_bounding_rectange.centre
+    target_bounding_rectangle = Rectangle(target_bbox)
+    target_point = target_bounding_rectangle.centre
 
 
     # Initialize tracker with first frame and bounding box
     rval = tracker.init(frame, bounding_rectangle.array_representation)
+    tval = target_tracker.init(frame, target_bounding_rectangle.array_representation)
 
     ###############Estimate Initial Jacobian################################
 
-    jacobian_matrix, feature_point = initial_jacobian(tracker, vc, feature_point, target_point, server, queue)
+    jacobian_matrix, feature_point = initial_jacobian(tracker, vc, feature_point, target_tracker, server, queue)
     #If an obstacle was detected during the computation 
     if (safe_mode_active and obstacle_detected(queue)):
         print("Obstacle During Initial Jacobian!")
-        jacobian_matrix, feature_point = initial_jacobian(tracker, vc, feature_point, target_point, server, queue)
+        jacobian_matrix, feature_point = initial_jacobian(tracker, vc, feature_point, target_tracker, server, queue)
 
     #############End of Initial Jacobian Estimation#########################
     
@@ -216,7 +222,8 @@ if __name__ == '__main__' :
         #Store current position as the previous position. To be used to get the difference in movement.
         previous_feature_point = feature_point
         #Move the robot by the amount specified in the angles vector
-        tracking_failed, end_effector_bounding_box = move_and_track(tracker, vc, angles[0], angles[1], target_point, server, queue)
+        tracking_failed, end_effector_bounding_box, target_bounding_box = move_and_track(tracker, vc, angles[0], angles[1], target_tracker, server, queue)
+        target_point = target_bounding_box.centre
         if (tracking_failed):
             #reinitialize tracker if tracking has failed
             tracker, tracker_type = choose_tracking_method(2,minor_ver)
@@ -228,7 +235,7 @@ if __name__ == '__main__' :
         # This is restarting visual servoing from scratch, with the last position of the end effector after avoiding the collision as starting point.
         if (safe_mode_active and obstacle_detected(queue)):
             print("Obstacle During Visual Servoing!")
-            jacobian_matrix, feature_point = initial_jacobian(tracker, vc, feature_point, target_point, server, queue)
+            jacobian_matrix, feature_point = initial_jacobian(tracker, target_tracker, vc, feature_point, target_point, server, queue)
             error_vector = compute_delta(feature_point, target_point)
         else:
             #Broyden Update

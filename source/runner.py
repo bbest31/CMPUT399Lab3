@@ -36,7 +36,7 @@ while True:
         base_motor.run_to_rel_pos(position_sp=base_angle, speed_sp = 30)
         joint_motor.run_to_rel_pos(position_sp=joint_angle, speed_sp = 30)
 
-        timer_thread = Thread(target=sleep, args=(5,))
+        timer_thread = Thread(target=sleep, args=(3,))
         timer_thread.start()
         obstacle_evaded = False
         while timer_thread.is_alive():
