@@ -30,18 +30,20 @@ while rval and i < 100:
     i = i + 1
 
 
-
+#Select a region of interest for the feature detection
 bbox = cv2.selectROI("webcam",frame, False)
 bounding_rectangle = Rectangle(bbox)
 
+#Create a mask that when applyied to an image, it will "discard" all  the pixels
+#not in out region of intrest
 initial_mask = np.zeros_like(frame)     
-# Crop image
 channel_count = frame.shape[2]  
 ignore_mask_color = (255,)*channel_count
 corners = np.array([[bounding_rectangle.top_left, bounding_rectangle.top_right, bounding_rectangle.bottom_left, bounding_rectangle.bottom_right]],dtype=np.int32)
-
 cv2.fillPoly(initial_mask, corners, ignore_mask_color)
-#cropped_frame = frame[int(r[1]):int(r[1]+r[3]), int(r[0]):int(r[0]+r[2])]
+
+#Apply mask to current frame, convert to a greyscale image and perform ShiTomasi corner detection
+#To get a set of good points to track
 masked_image = cv2.bitwise_and(frame, initial_mask)
 gray_masked_image = cv2.cvtColor(masked_image, cv2.COLOR_BGR2GRAY)
 p0 = cv2.goodFeaturesToTrack(gray_masked_image, mask = None, **feature_params)
