@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # RUN ON LAPTOP USING PYTHON 3.6
 
+#This class handles the Server side of the comunication between the laptop and the brick.
+
 import socket
 import time
 from queue import Queue
@@ -9,7 +11,8 @@ class Server:
     def __init__(self,port):
        # setup server socket
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        #We need to use the ip address that shows up in ipconfig
+        #We need to use the ip address that shows up in ipconfig for the usb ethernet adapter
+        #That handles the comunication between the PC and the crick
         host = "169.254.118.169"
         print ("host: ", host)                        
         port = 9999
@@ -21,9 +24,11 @@ class Server:
         
 
 
-    #The only command/data we should send to the brick is a tuple (theta_1, theta_2) so that the robot can
-    #Execute the movement. Ideally, after we send the command, we will listen (blocking) for a bit in order for the robot
-    #To complete the command and report back to us.
+    #Sends set of angles to the brick via TCP. 
+    #input: base_angle [Float]: The angle by which we want the base to move
+    #       joint_angle [Float]: The angle by which we want to joint to move
+    #       queue [Thread-safe Queue]: Mutable data structure to store (and return)
+    #             the messages received from the client
     def sendAngles(self, base_angle, joint_angle, queue):
         #Format in which the client expects the data
         # angle1    angle2
@@ -31,16 +36,21 @@ class Server:
         data = str(base_angle)+"\t"+str(joint_angle)
         print("Sending Data: (" + data + ") to robot.")
         self.cs.send(data.encode("UTF-8"))
-        #Waiting for acknowledgement
+        #Waiting for the client (ev3 brick) to let the server know
+        #That it is done moving
         reply = self.cs.recv(128).decode("UTF-8")
         queue.put(reply)
 
+    #Sends a termination message to the client. This will cause the client
+    #to exit "cleanly", after stopping the motors.
     def sendTermination(self):
         self.cs.send("EXIT".encode("UTF-8"))
 
+    #Lets the client know that it should enable safety mode on its end
     def sendEnableSafetyMode(self):
         self.cs.send("SAFETY_ON".encode("UTF-8"))
     
+    #Lets the client know that it should disable safety mode on its end
     def sendDisableSafetyMode(self):
         self.cs.send("SAFETY_OFF".encode("UTF-8"))
 

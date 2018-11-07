@@ -7,6 +7,8 @@ from threading import Event, Thread
 from time import sleep
 from queue import Queue
 
+
+#Choosing tracking method
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
     tracker_type = tracker_types[index]
@@ -92,16 +94,22 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_tracker, server,
 
 
 #This is an implementation of what we have in http://ugweb.cs.ualberta.ca/~vis/courses/robotics/lectures/lec10VisServ.pdf (pages 25 and 26)
-def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
+#For the Broyden Update (Online Jacobian computation)
+#Input: jacobian_matrix [Numpy Matrix]: Jacobian Matrix at current iteration
+#       position_delta [Numpy array]: Change in position from last movement
+#       angle_delta [Numpy array]: Amount (in angles) by which each of the motors rotated in the last movement. Array is of the form [base_angle, joint_angle]
+#       alpha [Float]: Amount to by which we want to scale the update
+#Output: [Numpy matrix] that corrsponds to the updated Jacobian
+def broyden_update(jacobian_matrix, position_delta, angle_delta, alpha):
     #We need to make sure these are numpy objects.
-    position_vector = np.array(position_vector)
-    angle_vector = np.array(angle_vector)
+    position_delta = np.array(position_delta)
+    angle_delta = np.array(angle_delta)
     jacobian_matrix = np.mat(jacobian_matrix)
     #Compute the fraction term separately (for clarity)
-    numerator = np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector)
-    denominator = angle_vector.dot(angle_vector)
+    numerator = np.outer(position_delta - jacobian_matrix.dot(angle_delta),angle_vector)
+    denominator = angle_delta.dot(angle_delta)
     #This will essentially divide the 2x2 matrix in the numerator
-    #By the squared norm of the the angle_vector
+    #By the squared norm of the the angle_delta
     fraction = numerator/denominator
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
     return  jacobian_matrix + (alpha * fraction)
@@ -133,14 +141,14 @@ def initial_jacobian(tracker, vc, previous_position, target_tracker, server, que
 
 
 if __name__ == '__main__' :
-
+    #Get OpenCV version
     (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
-
+    #Start listening on port 9999
     server = Server(9999)
+    #Thread-safe queue to get data from threads
     queue = Queue()
-    # Set the Safety mode HERE!#########
+    #Set safety mode (Obstacle detection and avoidance)
     safe_mode_active = True
-    ####################################
 
     #Enable or disable safety mode on the client (Brick)
     if (safe_mode_active):
@@ -148,17 +156,23 @@ if __name__ == '__main__' :
     else:
         server.sendDisableSafetyMode()
 
-    # Set up tracker.
+    ##### Instantiate KCF Trackers ######
+    #End effector KCF Tracker
     tracker, tracker_type = choose_tracking_method(2,minor_ver)
+    #Target Point/Object KCF tracker
     target_tracker, target_tracker_type = choose_tracking_method(2,minor_ver)
     
     vc = cv2.VideoCapture(1)
 
-    if vc.isOpened(): # try to get the first frame
+    #Get the first frame
+    if vc.isOpened(): 
         rval, frame = vc.read()
     else:
         rval = False
 
+    #This loop makes sure that the camera has time to properly initialize and adjust to the
+    #lighting conditions. If this loop is not present, then the frame object which is used 
+    #To specify the regions of interest further down the code would be too dark
     i = 0
     while rval and i < 100:
         # Read a new frame
@@ -167,17 +181,21 @@ if __name__ == '__main__' :
 
     cv2.namedWindow("webcam")
 
-    #In here the user draws a bounding box around the end effector. We can consider using our shape tracking too
     cv2.putText(frame, "Select End Effector", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 127, 0), 2)
+    #In here the user draws a bounding box around the end effector.
     #bbox is an array represending a rectangle: [x, y, height, width]
     bbox = cv2.selectROI("webcam",frame, False)
+    #Convert the bounding box into a Rectangle object to perform automatic calculation of the four corners as well as the centre point
     bounding_rectangle = Rectangle(bbox)
-    #This is the initial position. It is the centre of bounding box around the end effector stored as an (u,v) tuple
+    #Centre point of the end effector bounding box, is the point that we are using for the minimization of error and the point at which 
+    #We consider the end effector to be.
     feature_point = bounding_rectangle.centre 
     #Display feature point position and coordinates in the next frame
     rval, frame = vc.read()
     cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
     cv2.rectangle(frame, (int(feature_point[0]) - 2, int(feature_point[1]) - 2), (int(feature_point[0]) + 2,  int(feature_point[1]) + 2), (0, 0, 0), -1) 
+
+    
     cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
     #Display prompt to select target point
     cv2.putText(frame, "Select Target Point", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 127, 0), 2)
