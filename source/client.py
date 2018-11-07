@@ -12,7 +12,7 @@ class Client:
         
         #We need to use the ipv4 address that shows up in ipconfig in the computer for the USB
         #Ethernet adapter handling the connection to the EV3
-        host = "169.254.118.169"
+        host = "169.254.105.60"
         print("setting up client, address =", host, "port =", port)
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.s.connect((host, port))                               

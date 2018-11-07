@@ -13,7 +13,7 @@ class Server:
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         #We need to use the ip address that shows up in ipconfig for the usb ethernet adapter
         #That handles the comunication between the PC and the crick
-        host = "169.254.118.169"
+        host = "169.254.105.60"
         print ("host: ", host)                        
         port = 9999
         serversocket.bind((host, port))                                  
