@@ -9,7 +9,10 @@ from queue import Queue
 
 #This procesude cointains the routine for visual servoing.
 
-#Choosing tracking method
+#Choosing tracking method out all of the possible implementations provided by the OpenCV contrib module
+#This will return an uninitialized tracker object of the type of our choosing.
+#We decided to go for the KCF tracker in our visual servoing implementation since it was the one that we thought
+#had the best performance.
 def choose_tracking_method(index,minor_ver):
     tracker_types = ['BOOSTING', 'MIL','KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
     tracker_type = tracker_types[index]
