@@ -6,7 +6,10 @@ from ev3dev.ev3 import *
 import socket
 from time import sleep
 
+#This file contains the functions for obstacle avoidance
 
+#Entry point for the avoidance functionality. This function is the "top level" function  and will call 
+#the necessary functions in order to avoid an obstacle
 def avoid(base_rot, base_motor, joint_motor):
     coil(base_rot,base_motor, joint_motor)
     sleep(3)
@@ -67,7 +70,7 @@ def coil(base_rot,base_motor, joint_motor):
     base_motor.stop()
     joint_motor.stop()
 
-
+#Uncoils the end effector
 def uncoil(base_rot,base_motor, joint_motor):
     if(base_rot < 0):
         base_motor.run_to_rel_pos(position_sp=-150, speed_sp = 30)
