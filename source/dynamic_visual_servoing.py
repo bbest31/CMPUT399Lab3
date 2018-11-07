@@ -20,7 +20,7 @@ if __name__ == '__main__' :
     queue = Queue()
     #Set safety mode (Obstacle detection and avoidance)
     safe_mode_active = True
-    #Dynamic
+
 
     #Enable or disable safety mode on the client (Brick)
     if (safe_mode_active):
@@ -73,11 +73,6 @@ if __name__ == '__main__' :
     multiTracker = cv2.MultiTracker_create()
     multiTracker.add(tracker, frame, bounding_rectangle.array_representation)
     multiTracker.add(target_tracker, frame, target_bounding_rectangle.array_representation)
-
-    # Initialize end effector KCF tracker with the corresponding end effector bounding box
-    #rval = tracker.init(frame, bounding_rectangle.array_representation)
-    # Initialize target point KCF tracker with the corresponding end target bounding box
-    #tval = target_tracker.init(frame, target_bounding_rectangle.array_representation)
 
     ###############Estimate Initial Jacobian################################
 
