@@ -75,9 +75,12 @@ def obstacle_detected(queue):
 #Outputs: A tuple consisting of the tracking_failed [Boolean], which will be set to true if we lost the tracking of the end effector.
 #         bounding_rectangle [Rectangle object]  which contains a representation of the end effector bounding box
 def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, queue):
+    #Send move command to the server. Start as a new thread, pass the queue object to the thread
+    #in order to be able to retrieve messages from client (Brick) in the main thread
     robot_movement_thread = Thread(target=server.sendAngles, args=(base_angle,joint_angle, queue))
     robot_movement_thread.start() 
     tracking_failed = False
+    #While the thread is alive, we know that the server is still waiting to receive a message from the client letting it know that is done moving.
     while robot_movement_thread.is_alive():
         rval, frame = vc.read()
         ok, bbox = tracker.update(frame)
@@ -86,10 +89,11 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
             # Tracking success
             #Update the current position of the end effector
             current_position = bounding_rectangle.centre 
-            #Draw rectangles
+            #Draw rectangles representing the bounding box arond the end effector. The centroid of the end effector bounding box and a small rectangle representing the 
+            #tracked target point
             cv2.rectangle(frame, bounding_rectangle.top_left, bounding_rectangle.bottom_right, (255,0,0), 2, 1)
             cv2.rectangle(frame, (int(current_position[0]) - 2, int(current_position[1]) - 2), (int(current_position[0]) + 2,  int(current_position[1]) + 2), (0, 0, 0), -1) 
-            cv2.putText(frame, "Feature Point (x,y): "  + str(feature_point), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+            cv2.putText(frame, "Feature Point (x,y): "  + str(current_position), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.putText(frame, "Target Point (x,y): "  + str(target_point), (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
             cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
             tracking_failed = False
@@ -103,12 +107,7 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
         if k == 27 : break
     #If we lost tracking and couldn't recover, we need the user to manually select the end effector:
     if tracking_failed:
-        rval, frame = vc.read()
-        cv2.putText(frame, "Tracking failure detected.", (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-        cv2.putText(frame, "Please select End Effector", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-        cv2.rectangle(frame, (int(target_point[0]) - 2, int(target_point[1]) - 2), (int(target_point[0]) + 2,  int(target_point[1]) + 2), (0, 128, 255), -1) 
-        bbox = cv2.selectROI("webcam",frame, False)
-        bounding_rectangle = Rectangle(bbox)
+        bounding_rectangle, target_bounding_rectangle = select_tracked_regions(vc)
 
     return tracking_failed, bounding_rectangle
 
@@ -120,16 +119,16 @@ def move_and_track(tracker, vc, base_angle, joint_angle, target_point, server, q
 #       angle_delta [Numpy array]: Amount (in angles) by which each of the motors rotated in the last movement. Array is of the form [base_angle, joint_angle]
 #       alpha [Float]: Amount to by which we want to scale the update
 #Output: [Numpy matrix] that corrsponds to the updated Jacobian
-def broyden_update(jacobian_matrix, position_vector, angle_vector, alpha):
+def broyden_update(jacobian_matrix, position_delta, angle_delta, alpha):
     #We need to make sure these are numpy objects.
-    position_vector = np.array(position_vector)
-    angle_vector = np.array(angle_vector)
+    position_delta = np.array(position_delta)
+    angle_delta = np.array(angle_delta)
     jacobian_matrix = np.mat(jacobian_matrix)
     #Compute the fraction term separately (for clarity)
-    numerator = np.outer(position_vector - jacobian_matrix.dot(angle_vector),angle_vector)
-    denominator = angle_vector.dot(angle_vector)
+    numerator = np.outer(position_delta - jacobian_matrix.dot(angle_delta),angle_delta)
+    denominator = angle_delta.dot(angle_delta)
     #This will essentially divide the 2x2 matrix in the numerator
-    #By the squared norm of the the angle_vector
+    #By the squared norm of the the angle_delta
     fraction = numerator/denominator
     #Perform the rank 1 update. This will return an updated jacobian matrix as a numpy matrix
     return  jacobian_matrix + (alpha * fraction)

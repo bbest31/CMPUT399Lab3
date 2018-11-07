@@ -9,7 +9,9 @@ from queue import Queue
 from dynamic_visual_servoing_methods import *
 
 
-#This procesude cointains the main routine for visual servoing.
+#This is the main procedure for Dynamic visual servoing.
+#In Dynamic visual servoing we assume that the target object is moving
+#and as a result, we have two trackers.
 
 if __name__ == '__main__' :
     #Get OpenCV version

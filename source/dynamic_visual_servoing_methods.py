@@ -82,8 +82,7 @@ def move_and_track(multiTracker, vc, base_angle, joint_angle, server, queue):
     while robot_movement_thread.is_alive():
         #Read get image from webcam and update trackers and bounding boxes while the robot is moving
         rval, frame = vc.read()
-        #ok, bbox = tracker.update(frame)
-        #frame_target = frame
+        #The first elemenent of bounding_boxes corresponds to the end effector, the second one corresponds to the target
         ok, bounding_boxes = multiTracker.update(frame)
         bounding_rectangle = Rectangle(bounding_boxes[0])
         target_bounding_rectangle = Rectangle(bounding_boxes[1])

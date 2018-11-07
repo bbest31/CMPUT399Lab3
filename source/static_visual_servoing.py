@@ -9,7 +9,10 @@ from queue import Queue
 from static_visual_servoing_methods import *
 
 
-if __name__ == '__main__' :S
+#This is the main procedure for Static visual servoing.
+#In Static visual servoing we assume that the target is static
+
+if __name__ == '__main__' :
 
     #Get OpenCV version
     (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
