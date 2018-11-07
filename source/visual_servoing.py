@@ -7,6 +7,7 @@ from threading import Event, Thread
 from time import sleep
 from queue import Queue
 
+#This procesude cointains the routine for visual servoing.
 
 #Choosing tracking method
 def choose_tracking_method(index,minor_ver):
